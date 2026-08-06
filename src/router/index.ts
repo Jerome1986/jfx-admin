@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Layout from '@/layout/index.vue'
+import pinia, { useUserStore } from '@/stores'
 
 // 创建后台页面路由实例并注册业务路由。
 const router = createRouter({
@@ -139,6 +140,19 @@ const router = createRouter({
     },
     { path: '/:pathMatch(.*)*', redirect: '/login' },
   ],
+})
+
+// 路由守卫
+router.beforeEach((to) => {
+  const userStore = useUserStore(pinia)
+
+  if (!userStore.token && to.path !== '/login') {
+    return '/login'
+  }
+
+  if (userStore.token && to.path === '/login') {
+    return '/dashboard/overview'
+  }
 })
 
 router.afterEach((to) => {

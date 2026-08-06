@@ -4,10 +4,13 @@ import { useRouter } from 'vue-router'
 import { Lock, User } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
+import { adminLogin } from '@/api/login'
 import compactLogo from '@/assets/logo/logo.png'
 import fullLogo from '@/assets/logo/logo2.png'
+import { useUserStore } from '@/stores'
 
 const router = useRouter()
+const userStore = useUserStore()
 const loading = ref(false)
 const showPassword = ref(false)
 const rememberMe = ref(true)
@@ -24,10 +27,15 @@ async function handleLogin() {
   if (!validate()) return
 
   loading.value = true
-  await new Promise((resolve) => window.setTimeout(resolve, 650))
-  loading.value = false
-  ElMessage.success('登录成功 欢迎回来')
-  await router.push('/dashboard/overview')
+  try {
+    const { data } = await adminLogin(form.username.trim(), form.password)
+    userStore.setToken(data.token)
+    userStore.setUserInfo(data.userInfo)
+    ElMessage.success('登录成功 欢迎回来')
+    await router.push('/dashboard/overview')
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 
@@ -71,40 +79,20 @@ async function handleLogin() {
 
         <form class="login-form" @submit.prevent="handleLogin">
           <label class="field-label" for="username">账号</label>
-          <el-input
-            id="username"
-            v-model="form.username"
-            :prefix-icon="User"
-            placeholder="请输入管理员账号"
-            size="large"
-            autocomplete="username"
-            :class="{ 'is-error': errors.username }"
-            @input="errors.username = ''"
-          />
+          <el-input id="username" v-model="form.username" :prefix-icon="User" placeholder="请输入管理员账号" size="large"
+            autocomplete="username" :class="{ 'is-error': errors.username }" @input="errors.username = ''" />
           <span v-if="errors.username" class="field-error">{{ errors.username }}</span>
 
           <div class="password-label">
             <label class="field-label" for="password">密码</label>
             <button type="button" tabindex="-1">忘记密码</button>
           </div>
-          <el-input
-            id="password"
-            v-model="form.password"
-            :prefix-icon="Lock"
-            :type="showPassword ? 'text' : 'password'"
-            placeholder="请输入登录密码"
-            size="large"
-            autocomplete="current-password"
-            :class="{ 'is-error': errors.password }"
-            @input="errors.password = ''"
-          >
+          <el-input id="password" v-model="form.password" :prefix-icon="Lock" :type="showPassword ? 'text' : 'password'"
+            placeholder="请输入登录密码" size="large" autocomplete="current-password" :class="{ 'is-error': errors.password }"
+            @input="errors.password = ''">
             <template #suffix>
-              <button
-                class="password-toggle"
-                type="button"
-                :aria-label="showPassword ? '隐藏密码' : '显示密码'"
-                @click="showPassword = !showPassword"
-              >
+              <button class="password-toggle" type="button" :aria-label="showPassword ? '隐藏密码' : '显示密码'"
+                @click="showPassword = !showPassword">
                 {{ showPassword ? '隐藏' : '显示' }}
               </button>
             </template>

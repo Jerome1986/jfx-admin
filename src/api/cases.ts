@@ -1,4 +1,5 @@
 import type { CaseDetail, CasePageResult, CaseQuery, CaseSaveInput, CaseStatus } from '@/types/case'
+import { request } from '@/utils/request'
 
 // 定义案例模拟数据的版本化存储键。
 const STORAGE_KEY = 'jfx-admin:cases:v1'
@@ -193,39 +194,22 @@ export const caseApi = {
 
   // 新增一条完整案例记录。
   async create(input: CaseSaveInput): Promise<CaseDetail> {
-    // 读取新增前的完整案例集合。
-    const items = read()
-    // 记录案例创建和更新时间。
-    const now = new Date().toISOString()
-    // 组装准备持久化的新案例对象。
-    const item: CaseDetail = {
-      ...clone(input),
-      id: Math.max(0, ...items.map((caseItem) => caseItem.id)) + 1,
-      beforeCover: '',
-      afterCover: '',
-      publishedAt: input.status === 'published' ? now : undefined,
-      createdAt: now,
-      updatedAt: now,
-    }
-    if (item.status !== 'published') item.isRecommended = false
-    items.push(item)
-    save(items)
-    return clone(item)
+    const response = await request<CaseDetail>({
+      method: 'POST',
+      url: '/case/add',
+      data: input,
+    })
+    return response.data
   },
 
   // 修改指定案例的完整业务内容。
   async update(id: number, input: CaseSaveInput): Promise<CaseDetail> {
-    // 读取修改前的完整案例集合。
-    const items = read()
-    // 定位需要修改的案例记录。
-    const item = locate(items, id)
-    // 保留系统字段并覆盖可编辑业务字段。
-    Object.assign(item, clone(input), { updatedAt: new Date().toISOString() })
-    if (item.status === 'published' && !item.publishedAt)
-      item.publishedAt = new Date().toISOString()
-    if (item.status !== 'published') item.isRecommended = false
-    save(items)
-    return clone(item)
+    const response = await request<CaseDetail>({
+      method: 'PUT',
+      url: `/admin/cases/${id}`,
+      data: input,
+    })
+    return response.data
   },
 
   // 修改案例发布状态并同步推荐约束。

@@ -4,11 +4,26 @@ import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ArrowDown, Bell, Expand, Fold } from '@element-plus/icons-vue'
 import { menuGroups } from '@/config/menu'
+import { useUserStore } from '@/stores'
 
 // 控制侧边栏的折叠状态。
 const isCollapsed = ref(false)
 // 获取当前激活的路由信息。
 const route = useRoute()
+const userStore = useUserStore()
+
+const roleNames = {
+  ADMIN: '超级管理员',
+  MANAGER: '内容管理员',
+  STAFF: '客服',
+} as const
+
+const username = computed(() => userStore.userInfo?.username || '管理员')
+const userInitial = computed(() => username.value.slice(0, 1))
+const roleName = computed(() => {
+  const role = userStore.userInfo?.role
+  return role ? roleNames[role] : ''
+})
 
 // 根据当前路由计算所属菜单分组。
 const currentGroup = computed(
@@ -93,10 +108,10 @@ const currentTitle = computed(() => String(route.meta.title || '管理后台'))
           <span class="topbar-divider" />
           <el-dropdown>
             <button class="user-entry" type="button">
-              <el-avatar :size="34">管</el-avatar>
+              <el-avatar :size="34">{{ userInitial }}</el-avatar>
               <span class="user-copy">
-                <strong>管理员</strong>
-                <small>超级管理员</small>
+                <strong>{{ username }}</strong>
+                <small v-if="roleName">{{ roleName }}</small>
               </span>
               <el-icon><ArrowDown /></el-icon>
             </button>

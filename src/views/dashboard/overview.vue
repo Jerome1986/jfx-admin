@@ -121,22 +121,24 @@ const formatMetricValue = (metric: BusinessMetric) => {
         <h2>异常提醒</h2>
         <p>集中关注超时、未分配和未处理的业务异常</p>
       </div>
-      <div v-if="alerts.length" class="alert-list">
-        <router-link
-          v-for="alert in alerts"
-          :key="alert.id"
-          class="alert-item"
-          :to="{ path: alert.targetPath, query: alert.query }"
-        >
-          <span class="alert-level" :class="`is-${alert.level}`" />
-          <span class="alert-copy">
-            <strong>{{ alert.title }}</strong>
-            <small>{{ alert.description }}</small>
-          </span>
-          <el-tag :type="alert.level" effect="light">{{ alert.count }} 条</el-tag>
-          <span class="alert-link">查看详情</span>
-        </router-link>
-      </div>
+      <el-scrollbar v-if="alerts.length" class="alert-scrollbar">
+        <div class="alert-list">
+          <router-link
+            v-for="alert in alerts"
+            :key="alert.id"
+            class="alert-item"
+            :to="{ path: alert.targetPath, query: alert.query }"
+          >
+            <span class="alert-level" :class="`is-${alert.level}`" />
+            <span class="alert-copy">
+              <strong>{{ alert.title }}</strong>
+              <small>{{ alert.description }}</small>
+            </span>
+            <el-tag :type="alert.level" effect="light">{{ alert.count }} 条</el-tag>
+            <span class="alert-link">查看详情</span>
+          </router-link>
+        </div>
+      </el-scrollbar>
       <el-empty v-else description="暂无异常数据" />
     </div>
   </section>
@@ -145,8 +147,11 @@ const formatMetricValue = (metric: BusinessMetric) => {
 <style scoped lang="scss">
 .dashboard-page {
   display: flex;
+  height: 100%;
+  min-height: 0;
   flex-direction: column;
   gap: 14px;
+  overflow: hidden;
 }
 
 .dashboard-section {
@@ -223,8 +228,17 @@ const formatMetricValue = (metric: BusinessMetric) => {
 }
 
 .anomaly-section {
+  display: flex;
   flex: 1;
-  min-height: 260px;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.alert-scrollbar {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .alert-list {

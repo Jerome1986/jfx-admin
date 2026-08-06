@@ -15,15 +15,21 @@ export const useUserStore = defineStore(
     const setToken = (val: string) => {
       token.value = val
     }
+    // 写入当前登录管理员信息。
+    const setUserInfo = (val: AdminInfo) => {
+      userInfo.value = val
+    }
     // 清空当前接口访问令牌。
     const clearToken = () => {
       token.value = ''
+      userInfo.value = undefined
     }
 
     return {
       userInfo,
       token,
       setToken,
+      setUserInfo,
       clearToken,
     }
   },

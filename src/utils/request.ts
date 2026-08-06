@@ -20,9 +20,9 @@ import type { ApiResponse } from '@/types/api'
 export type { ApiResponse } from '@/types/api'
 
 // ======================== 基础配置 ========================
-// export const baseURL = 'http://localhost:3000/api'
+export const baseURL = 'http://localhost:3000/api'
 // 定义后台接口的基础访问地址。
-export const baseURL = 'https://api.920keji.com/api'
+// export const baseURL = 'https://api.920keji.com/api'
 
 // 创建带统一超时和基础地址的 Axios 实例。
 const instance: AxiosInstance = axios.create({
