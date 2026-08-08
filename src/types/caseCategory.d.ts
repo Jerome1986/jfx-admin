@@ -1,5 +1,5 @@
 /** 案例分类启用状态 */
-export type CaseCategoryStatus = 'enabled' | 'disabled'
+export type CaseCategoryStatus = boolean
 
 /** 案例分类详情 */
 export interface CaseCategory {
@@ -10,7 +10,7 @@ export interface CaseCategory {
   /** 分类排序值，数值越小越靠前 */
   sort: number
   /** 分类启用状态 */
-  status: CaseCategoryStatus
+  isEnabled: CaseCategoryStatus
   /** 创建时间 */
   createdAt: string
   /** 更新时间 */
@@ -26,10 +26,7 @@ export interface CaseCategoryInput {
 }
 
 /** 案例分类编辑参数 */
-export interface CaseCategoryUpdateInput extends CaseCategoryInput {
-  /** 数据更新时间，用于并发修改校验 */
-  updatedAt: string
-}
+export type CaseCategoryUpdateInput = CaseCategoryInput
 
 /** 案例分类操作审计记录 */
 export interface CaseCategoryAuditLog {

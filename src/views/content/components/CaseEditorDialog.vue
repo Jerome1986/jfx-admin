@@ -2,11 +2,7 @@
 import { reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Delete, Plus } from '@element-plus/icons-vue'
-import type {
-  FormInstance,
-  FormRules,
-  UploadProps,
-} from 'element-plus'
+import type { FormInstance, FormRules, UploadProps } from 'element-plus'
 
 import { caseApi } from '@/api/cases'
 import type { CaseDetail, CaseSaveInput } from '@/types/case'
@@ -162,40 +158,69 @@ watch(
     if (props.caseId) fillForm(await caseApi.detail(props.caseId))
     else
       Object.assign(form, createForm(), {
-        categoryId: props.categories.find((item) => item.status === 'enabled')?.id ?? 0,
+        categoryId: props.categories.find((item) => item.isEnabled)?.id ?? 0,
       })
   },
 )
 </script>
 
 <template>
-  <el-dialog :model-value="modelValue" :title="caseId ? '编辑案例' : '新增案例'" width="860px" top="4vh" destroy-on-close
-    class="case-editor-dialog" @update:model-value="emit('update:modelValue', $event)">
+  <el-dialog
+    :model-value="modelValue"
+    :title="caseId ? '编辑案例' : '新增案例'"
+    width="860px"
+    top="4vh"
+    destroy-on-close
+    class="case-editor-dialog"
+    @update:model-value="emit('update:modelValue', $event)"
+  >
     <el-form ref="formRef" :model="form" :rules="rules" label-width="92px">
       <div class="section-title">基本信息</div>
       <div class="form-grid">
-        <el-form-item label="案例标题" prop="title" class="span-2"><el-input v-model="form.title" maxlength="100"
-            show-word-limit /></el-form-item>
+        <el-form-item label="案例标题" prop="title" class="span-2"
+          ><el-input v-model="form.title" maxlength="100" show-word-limit
+        /></el-form-item>
         <el-form-item label="案例分类" prop="categoryId">
           <el-select v-model="form.categoryId">
-            <el-option v-for="item in categories" :key="item.id"
-              :label="item.status === 'disabled' ? `${item.name}（已停用）` : item.name" :value="item.id"
-              :disabled="item.status === 'disabled' && item.id !== form.categoryId" /></el-select></el-form-item>
-        <el-form-item label="发布状态"><el-select v-model="form.status"><el-option label="草稿" value="draft" /><el-option
-              label="已发布" value="published" /><el-option label="已下架" value="disabled" /></el-select></el-form-item>
+            <el-option
+              v-for="item in categories"
+              :key="item.id"
+              :label="!item.isEnabled ? `${item.name}（已停用）` : item.name"
+              :value="item.id"
+              :disabled="!item.isEnabled && item.id !== form.categoryId" /></el-select
+        ></el-form-item>
+        <el-form-item label="发布状态"
+          ><el-select v-model="form.status"
+            ><el-option label="草稿" value="draft" /><el-option
+              label="已发布"
+              value="published" /><el-option label="已下架" value="disabled" /></el-select
+        ></el-form-item>
         <el-form-item label="所在城市" prop="city"><el-input v-model="form.city" /></el-form-item>
-        <el-form-item label="户型" prop="roomType"><el-input v-model="form.roomType" /></el-form-item>
-        <el-form-item label="面积" prop="area"><el-input-number v-model="form.area" :min="1" :max="9999"
-            :precision="2" /><span class="unit">㎡</span></el-form-item>
+        <el-form-item label="户型" prop="roomType"
+          ><el-input v-model="form.roomType"
+        /></el-form-item>
+        <el-form-item label="面积" prop="area"
+          ><el-input-number v-model="form.area" :min="1" :max="9999" :precision="2" /><span
+            class="unit"
+            >㎡</span
+          ></el-form-item
+        >
         <el-form-item label="装修风格"><el-input v-model="form.style" /></el-form-item>
-        <el-form-item label="案例标签" class="span-2"><el-input v-model="form.tagsText"
-            placeholder="多个标签使用逗号分隔" /></el-form-item>
+        <el-form-item label="案例标签" class="span-2"
+          ><el-input v-model="form.tagsText" placeholder="多个标签使用逗号分隔"
+        /></el-form-item>
       </div>
       <div class="section-title">改造图片</div>
       <div class="editor-covers">
         <el-form-item label="改造前" prop="beforeCover">
-          <el-upload class="cover-uploader" :action="uploadUrl" :show-file-list="false"
-            :on-success="handleBeforeCoverSuccess" :on-error="handleUploadError" :before-upload="beforeUpload">
+          <el-upload
+            class="cover-uploader"
+            :action="uploadUrl"
+            :show-file-list="false"
+            :on-success="handleBeforeCoverSuccess"
+            :on-error="handleUploadError"
+            :before-upload="beforeUpload"
+          >
             <div class="editor-cover before">
               <img v-if="form.beforeCover" :src="form.beforeCover" alt="改造前图片" />
               <el-icon v-else>
@@ -203,12 +228,24 @@ watch(
               </el-icon>
             </div>
           </el-upload>
-          <el-button v-if="form.beforeCover" class="remove-cover" :icon="Delete" circle title="删除改造前图片"
-            @click.stop="removeCover('beforeCover')" />
+          <el-button
+            v-if="form.beforeCover"
+            class="remove-cover"
+            :icon="Delete"
+            circle
+            title="删除改造前图片"
+            @click.stop="removeCover('beforeCover')"
+          />
         </el-form-item>
         <el-form-item label="改造后" prop="afterCover">
-          <el-upload class="cover-uploader" :action="uploadUrl" :show-file-list="false"
-            :on-success="handleAfterCoverSuccess" :on-error="handleUploadError" :before-upload="beforeUpload">
+          <el-upload
+            class="cover-uploader"
+            :action="uploadUrl"
+            :show-file-list="false"
+            :on-success="handleAfterCoverSuccess"
+            :on-error="handleUploadError"
+            :before-upload="beforeUpload"
+          >
             <div class="editor-cover after">
               <img v-if="form.afterCover" :src="form.afterCover" alt="改造后图片" />
               <el-icon v-else>
@@ -216,44 +253,92 @@ watch(
               </el-icon>
             </div>
           </el-upload>
-          <el-button v-if="form.afterCover" class="remove-cover" :icon="Delete" circle title="删除改造后图片"
-            @click.stop="removeCover('afterCover')" />
+          <el-button
+            v-if="form.afterCover"
+            class="remove-cover"
+            :icon="Delete"
+            circle
+            title="删除改造后图片"
+            @click.stop="removeCover('afterCover')"
+          />
         </el-form-item>
       </div>
       <div class="section-title">费用与工期</div>
       <div class="form-grid">
-        <el-form-item label="总花费" prop="totalPrice"><el-input-number v-model="form.totalPrice" :min="0" :max="999999999"
-            :precision="2" /><span class="unit">元</span></el-form-item>
-        <el-form-item label="施工工期" prop="durationDays"><el-input-number v-model="form.durationDays" :min="1"
-            :max="9999" /><span class="unit">天</span></el-form-item>
-        <el-form-item label="报价人数"><el-input-number v-model="form.quoteCount" :min="0" /></el-form-item>
-        <el-form-item label="首页推荐"><el-switch v-model="form.isRecommended"
-            :disabled="form.status !== 'published'" /></el-form-item>
-        <el-form-item label="推荐排序"><el-input-number v-model="form.recommendSort" :min="0" :max="9999"
-            :disabled="!form.isRecommended" /></el-form-item>
+        <el-form-item label="总花费" prop="totalPrice"
+          ><el-input-number
+            v-model="form.totalPrice"
+            :min="0"
+            :max="999999999"
+            :precision="2"
+          /><span class="unit">元</span></el-form-item
+        >
+        <el-form-item label="施工工期" prop="durationDays"
+          ><el-input-number v-model="form.durationDays" :min="1" :max="9999" /><span class="unit"
+            >天</span
+          ></el-form-item
+        >
+        <el-form-item label="报价人数"
+          ><el-input-number v-model="form.quoteCount" :min="0"
+        /></el-form-item>
+        <el-form-item label="首页推荐"
+          ><el-switch v-model="form.isRecommended" :disabled="form.status !== 'published'"
+        /></el-form-item>
+        <el-form-item label="推荐排序"
+          ><el-input-number
+            v-model="form.recommendSort"
+            :min="0"
+            :max="9999"
+            :disabled="!form.isRecommended"
+        /></el-form-item>
       </div>
       <div class="section-title">案例内容</div>
-      <el-form-item label="案例说明" prop="description"><el-input v-model="form.description" type="textarea" :rows="4"
-          maxlength="1000" show-word-limit /></el-form-item>
+      <el-form-item label="案例说明" prop="description"
+        ><el-input
+          v-model="form.description"
+          type="textarea"
+          :rows="4"
+          maxlength="1000"
+          show-word-limit
+      /></el-form-item>
       <div class="dynamic-heading">
-        <span>改造亮点</span><el-button link type="primary" @click="addHighlight">添加亮点</el-button>
+        <span>改造亮点</span
+        ><el-button link type="primary" @click="addHighlight">添加亮点</el-button>
       </div>
       <div v-for="(item, index) in form.highlights" :key="index" class="dynamic-row highlight-row">
-        <el-input v-model="item.title" placeholder="亮点标题" /><el-input v-model="item.description"
-          placeholder="亮点说明" /><el-button link type="danger" :disabled="form.highlights.length === 1"
-          @click="removeHighlight(index)">删除</el-button>
+        <el-input v-model="item.title" placeholder="亮点标题" /><el-input
+          v-model="item.description"
+          placeholder="亮点说明"
+        /><el-button
+          link
+          type="danger"
+          :disabled="form.highlights.length === 1"
+          @click="removeHighlight(index)"
+          >删除</el-button
+        >
       </div>
       <div class="dynamic-heading">
         <span>费用明细</span><el-button link type="primary" @click="addCost">添加费用</el-button>
       </div>
       <div v-for="(item, index) in form.costs" :key="index" class="dynamic-row cost-row">
-        <el-input v-model="item.name" placeholder="费用名称" /><el-input-number v-model="item.amount" :min="0"
-          :precision="2" /><span class="unit">元</span><el-button link type="danger" :disabled="form.costs.length === 1"
-          @click="removeCost(index)">删除</el-button>
+        <el-input v-model="item.name" placeholder="费用名称" /><el-input-number
+          v-model="item.amount"
+          :min="0"
+          :precision="2"
+        /><span class="unit">元</span
+        ><el-button
+          link
+          type="danger"
+          :disabled="form.costs.length === 1"
+          @click="removeCost(index)"
+          >删除</el-button
+        >
       </div>
     </el-form>
-    <template #footer><el-button @click="close">取消</el-button><el-button type="primary" :loading="submitting"
-        @click="submit">保存</el-button></template>
+    <template #footer
+      ><el-button @click="close">取消</el-button
+      ><el-button type="primary" :loading="submitting" @click="submit">保存</el-button></template
+    >
   </el-dialog>
 </template>
 

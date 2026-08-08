@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 
 import { caseApi } from '@/api/cases'
@@ -55,9 +55,7 @@ const cities = ['北京', '上海', '杭州', '深圳', '武汉']
 // 建立分类 ID 到名称的快速映射。
 const categoryMap = computed(() => new Map(categories.value.map((item) => [item.id, item.name])))
 // 判断当前是否至少存在一个启用分类。
-const hasEnabledCategory = computed(() =>
-  categories.value.some((item) => item.status === 'enabled'),
-)
+const hasEnabledCategory = computed(() => categories.value.some((item) => item.isEnabled))
 // 定义分类表单的字段校验规则。
 const categoryRules: FormRules<CaseCategoryInput> = {
   name: [
@@ -82,7 +80,8 @@ const messageOf = (error: unknown) =>
 
 // 从分类仓储加载全部案例分类。
 const loadCategories = async () => {
-  categories.value = await caseCategoryApi.list()
+  const { data } = await caseCategoryApi.list()
+  categories.value = data
 }
 
 // 按当前查询条件加载案例分页数据。
@@ -191,10 +190,7 @@ const submitCategory = async () => {
   categorySubmitting.value = true
   try {
     if (editingCategory.value) {
-      await caseCategoryApi.update(editingCategory.value.id, {
-        ...categoryForm,
-        updatedAt: editingCategory.value.updatedAt,
-      })
+      await caseCategoryApi.update(editingCategory.value.id, categoryForm)
       ElMessage.success('分类修改成功')
     } else {
       await caseCategoryApi.create(categoryForm)
@@ -214,11 +210,29 @@ const submitCategory = async () => {
 const toggleCategoryStatus = async (category: CaseCategory) => {
   try {
     // 计算分类切换后的目标状态。
-    const status = category.status === 'enabled' ? 'disabled' : 'enabled'
-    await caseCategoryApi.setStatus(category.id, status, category.updatedAt)
-    ElMessage.success(status === 'enabled' ? '分类已启用' : '分类已停用')
+    const isEnabled = !category.isEnabled
+    await caseCategoryApi.setStatus(category.id, isEnabled)
+    ElMessage.success(isEnabled ? '分类已启用' : '分类已停用')
     await loadCategories()
   } catch (error) {
+    ElMessage.error(messageOf(error))
+    await loadCategories()
+  }
+}
+
+// 确认后删除指定分类。
+const removeCategory = async (category: CaseCategory) => {
+  try {
+    await ElMessageBox.confirm(`删除“${category.name}”后无法恢复，确定继续吗？`, '删除案例分类', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+    await caseCategoryApi.remove(category.id)
+    ElMessage.success('分类已删除')
+    await loadCategories()
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
     ElMessage.error(messageOf(error))
     await loadCategories()
   }
@@ -250,7 +264,7 @@ onMounted(async () => {
             <el-option
               v-for="item in categories"
               :key="item.id"
-              :label="item.status === 'disabled' ? `${item.name}（已停用）` : item.name"
+              :label="!item.isEnabled ? `${item.name}（已停用）` : item.name"
               :value="item.id"
             />
           </el-select>
@@ -297,14 +311,14 @@ onMounted(async () => {
         empty-text="暂无符合条件的案例"
       >
         <el-table-column label="案例" min-width="190" fixed="left">
-          <template #default="{ row }"
-            ><div class="case-cell">
+          <template #default="{ row }">
+            <div class="case-cell">
               <div>
                 <strong>{{ row.title }}</strong
                 ><small>{{ categoryMap.get(row.categoryId) || '未知分类' }}</small>
               </div>
-            </div></template
-          >
+            </div>
+          </template>
         </el-table-column>
         <el-table-column label="改造前" width="112" align="center">
           <template #default="{ row }">
@@ -333,12 +347,10 @@ onMounted(async () => {
           </template>
         </el-table-column>
         <el-table-column label="房屋信息" min-width="150"
-          ><template #default="{ row }"
-            ><div>{{ row.city }} · {{ row.roomType }}</div>
-            <small class="muted"
-              >{{ row.area }}㎡ · {{ row.style || '未设置风格' }}</small
-            ></template
-          ></el-table-column
+          ><template #default="{ row }">
+            <div>{{ row.city }} · {{ row.roomType }}</div>
+            <small class="muted">{{ row.area }}㎡ · {{ row.style || '未设置风格' }}</small>
+          </template></el-table-column
         >
         <el-table-column label="总花费" width="105"
           ><template #default="{ row }"
@@ -394,36 +406,42 @@ onMounted(async () => {
     />
 
     <el-drawer v-model="categoryDrawerVisible" title="案例分类管理" size="620px">
-      <template #header
-        ><div class="drawer-heading">
+      <template #header>
+        <div class="drawer-heading">
           <div>
             <strong>案例分类管理</strong>
-            <p>分类当前仅支持启停，不提供物理删除</p>
+            <p>维护案例分类名称、排序和启停状态</p>
           </div>
           <el-button type="primary" @click="openCreateCategory">新增分类</el-button>
-        </div></template
+        </div>
+      </template>
+      <el-table
+        :data="categories"
+        row-key="id"
+        border
+        empty-text="暂无分类"
+        max-height="calc(100vh - 220px)"
       >
-      <el-table :data="categories" row-key="id" border empty-text="暂无分类"
-        ><el-table-column prop="name" label="分类名称" min-width="150" /><el-table-column
+        <el-table-column prop="name" label="分类名称" min-width="150" /><el-table-column
           prop="sort"
           label="排序"
           width="80"
           align="center"
         /><el-table-column label="状态" width="90"
           ><template #default="{ row }"
-            ><el-tag :type="row.status === 'enabled' ? 'success' : 'info'">{{
-              row.status === 'enabled' ? '启用' : '停用'
+            ><el-tag :type="row.isEnabled ? 'success' : 'info'">{{
+              row.isEnabled ? '启用' : '停用'
             }}</el-tag></template
           ></el-table-column
-        ><el-table-column label="操作" width="145"
+        ><el-table-column label="操作" width="190"
           ><template #default="{ row }"
             ><el-button link type="primary" @click="openEditCategory(row)">编辑</el-button
             ><el-button
               link
-              :type="row.status === 'enabled' ? 'warning' : 'success'"
+              :type="row.isEnabled ? 'warning' : 'success'"
               @click="toggleCategoryStatus(row)"
-              >{{ row.status === 'enabled' ? '停用' : '启用' }}</el-button
-            ></template
+              >{{ row.isEnabled ? '停用' : '启用' }}</el-button
+            ><el-button link type="danger" @click="removeCategory(row)">删除</el-button></template
           ></el-table-column
         ></el-table
       >
@@ -475,62 +493,76 @@ onMounted(async () => {
   flex-direction: column;
   gap: 14px;
 }
+
 .filter-card,
 .table-card {
   background: #fff;
   border: 1px solid var(--jfx-border);
   border-radius: 10px;
 }
+
 .filter-card {
   padding: 20px 22px 2px;
+
   .el-form-item {
     margin-right: 22px;
     margin-bottom: 18px;
   }
+
   .el-input,
   .el-select {
     width: 190px;
   }
 }
+
 .table-card {
   min-height: 470px;
   padding: 22px;
 }
+
 .table-toolbar,
 .drawer-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
+
 .table-toolbar {
   margin-bottom: 20px;
+
   h2 {
     margin: 0;
     font-size: 17px;
   }
+
   p {
     margin: 6px 0 0;
     color: var(--jfx-muted);
     font-size: 12px;
   }
 }
+
 .toolbar-actions {
   display: flex;
   gap: 10px;
 }
+
 .case-cell {
   display: flex;
   align-items: center;
   gap: 12px;
+
   strong,
   small {
     display: block;
   }
+
   small {
     margin-top: 5px;
     color: var(--jfx-muted);
   }
 }
+
 .table-cover {
   position: relative;
   display: grid;
@@ -554,27 +586,33 @@ onMounted(async () => {
     object-fit: cover;
   }
 }
+
 .muted {
   color: var(--jfx-muted);
   line-height: 24px;
 }
+
 .pagination-wrap {
   display: flex;
   justify-content: flex-end;
   margin-top: 20px;
 }
+
 .drawer-heading {
   width: 100%;
   padding-right: 20px;
+
   strong {
     font-size: 18px;
   }
+
   p {
     margin: 6px 0 0;
     color: var(--jfx-muted);
     font-size: 12px;
   }
 }
+
 .warning-box {
   margin-top: 16px;
   padding: 12px 14px;
