@@ -46,7 +46,7 @@ export const pageFilters = {
   ],
   goods: [
     text('keyword', '商品', '请输入商品名称或编码'),
-    select('category', '商品分类', ['卫浴洁具', '灯具', '家用电器', '全屋定制', '地板瓷砖']),
+    select('category', '商品分类', []),
     select('status', '商品状态', ['草稿', '已上架', '已下架']),
     select('stockStatus', '库存状态', ['充足', '库存预警', '缺货']),
   ],

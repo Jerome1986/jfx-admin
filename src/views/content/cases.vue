@@ -12,6 +12,8 @@ import type { CaseCategory, CaseCategoryInput } from '@/types/caseCategory'
 
 // 控制案例列表的加载状态。
 const loading = ref(false)
+// 标记列表当前是否使用综合搜索接口。
+const searchActive = ref(false)
 // 保存当前分页展示的案例数据。
 const rows = ref<CaseListItem[]>([])
 // 保存符合筛选条件的案例总数。
@@ -44,7 +46,7 @@ const query = reactive<CaseQuery>({
   city: '',
   status: '',
   isRecommended: '',
-  page: 1,
+  pageNum: 1,
   pageSize: 5,
 })
 // 保存分类新增或编辑表单数据。
@@ -88,10 +90,11 @@ const loadCategories = async () => {
 const loadCases = async () => {
   loading.value = true
   try {
-    // 获取当前筛选条件对应的分页结果。
-    const result = await caseApi.list(query)
-    rows.value = result.list
-    total.value = result.total
+    // 搜索状态下保持筛选条件，否则只按分页获取列表。
+    const { data } = searchActive.value ? await caseApi.search(query) : await caseApi.list(query)
+
+    rows.value = data.list
+    total.value = data.total
   } catch (error) {
     ElMessage.error(messageOf(error))
   } finally {
@@ -101,19 +104,21 @@ const loadCases = async () => {
 
 // 从第一页执行案例查询。
 const search = () => {
-  query.page = 1
+  query.pageNum = 1
+  searchActive.value = true
   void loadCases()
 }
 
 // 清空筛选条件并重新加载案例列表。
 const resetQuery = () => {
+  searchActive.value = false
   Object.assign(query, {
     title: '',
     categoryId: '',
     city: '',
     status: '',
     isRecommended: '',
-    page: 1,
+    pageNum: 1,
   })
   void loadCases()
 }
@@ -128,7 +133,7 @@ const updateStatus = async (row: CaseListItem, value: CaseStatus) => {
   try {
     await caseApi.setStatus(row.id, value)
     ElMessage.success(
-      value === 'published' ? '案例已发布' : value === 'disabled' ? '案例已下架' : '已转为草稿',
+      value === 'PUBLISHED' ? '案例已发布' : value === 'OFFLINE' ? '案例已下架' : '已转为草稿',
     )
     await loadCases()
   } catch (error) {
@@ -151,7 +156,8 @@ const updateRecommended = async (row: CaseListItem, value: boolean) => {
 // 加载并打开指定案例的详情抽屉。
 const showDetail = async (row: CaseListItem) => {
   try {
-    detail.value = await caseApi.detail(row.id)
+    const { data } = await caseApi.detail(row.id)
+    detail.value = data
     detailVisible.value = true
   } catch (error) {
     ElMessage.error(messageOf(error))
@@ -168,6 +174,24 @@ const openCreateCase = () => {
 const openEditCase = (row: CaseListItem) => {
   editingCaseId.value = row.id
   caseDialogVisible.value = true
+}
+
+// 二次确认后删除案例，并保持分页位置有效。
+const removeCase = async (row: CaseListItem) => {
+  try {
+    await ElMessageBox.confirm(`删除“${row.title}”后无法恢复，确定继续吗？`, '删除案例', {
+      type: 'warning',
+      confirmButtonText: '确定删除',
+      cancelButtonText: '取消',
+    })
+    await caseApi.remove(row.id)
+    if (rows.value.length === 1 && query.pageNum > 1) query.pageNum -= 1
+    await loadCases()
+    ElMessage.success('案例已删除')
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(messageOf(error))
+  }
 }
 
 // 打开新增分类表单并初始化默认排序。
@@ -249,7 +273,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="case-page">
+  <section class="case-page fill-page-layout">
     <div class="filter-card">
       <el-form :inline="true" :model="query" label-position="left">
         <el-form-item label="案例标题"
@@ -275,9 +299,9 @@ onMounted(async () => {
         ></el-form-item>
         <el-form-item label="发布状态"
           ><el-select v-model="query.status" clearable placeholder="全部状态"
-            ><el-option label="草稿" value="draft" /><el-option
+            ><el-option label="草稿" value="DRAFT" /><el-option
               label="已发布"
-              value="published" /><el-option label="已下架" value="disabled" /></el-select
+              value="PUBLISHED" /><el-option label="已下架" value="OFFLINE" /></el-select
         ></el-form-item>
         <el-form-item label="首页推荐"
           ><el-select v-model="query.isRecommended" clearable placeholder="全部"
@@ -292,7 +316,7 @@ onMounted(async () => {
       </el-form>
     </div>
 
-    <div class="table-card">
+    <div class="table-card fill-content-card">
       <div class="table-toolbar">
         <div>
           <h2>案例管理</h2>
@@ -303,93 +327,99 @@ onMounted(async () => {
           ><el-button type="primary" @click="openCreateCase">新增案例</el-button>
         </div>
       </div>
-      <el-table
-        v-loading="loading"
-        :data="rows"
-        row-key="id"
-        border
-        empty-text="暂无符合条件的案例"
-      >
-        <el-table-column label="案例" min-width="190" fixed="left">
-          <template #default="{ row }">
-            <div class="case-cell">
-              <div>
-                <strong>{{ row.title }}</strong
-                ><small>{{ categoryMap.get(row.categoryId) || '未知分类' }}</small>
+      <div class="fill-content-body">
+        <el-table
+          v-loading="loading"
+          :data="rows"
+          row-key="id"
+          height="100%"
+          border
+          empty-text="暂无符合条件的案例"
+        >
+          <el-table-column label="案例" min-width="190" fixed="left">
+            <template #default="{ row }">
+              <div class="case-cell">
+                <div>
+                  <strong>{{ row.title }}</strong
+                  ><small>{{ categoryMap.get(row.categoryId) || '未知分类' }}</small>
+                </div>
               </div>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="改造前" width="112" align="center">
-          <template #default="{ row }">
-            <div class="table-cover before">
-              <span>改造前</span>
-              <img
-                v-if="row.beforeCover"
-                :src="row.beforeCover"
-                alt="改造前封面"
-                @error="($event.target as HTMLImageElement).style.display = 'none'"
-              />
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="改造后" width="112" align="center">
-          <template #default="{ row }">
-            <div class="table-cover after">
-              <span>改造后</span>
-              <img
-                v-if="row.afterCover"
-                :src="row.afterCover"
-                alt="改造后封面"
-                @error="($event.target as HTMLImageElement).style.display = 'none'"
-              />
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="房屋信息" min-width="150"
-          ><template #default="{ row }">
-            <div>{{ row.city }} · {{ row.roomType }}</div>
-            <small class="muted">{{ row.area }}㎡ · {{ row.style || '未设置风格' }}</small>
-          </template></el-table-column
-        >
-        <el-table-column label="总花费" width="105"
-          ><template #default="{ row }"
-            >¥{{ formatPrice(row.totalPrice) }}</template
-          ></el-table-column
-        >
-        <el-table-column label="工期" width="78"
-          ><template #default="{ row }">{{ row.durationDays }}天</template></el-table-column
-        >
-        <el-table-column prop="quoteCount" label="报价人数" width="88" align="center" />
-        <el-table-column label="首页推荐" width="100" align="center"
-          ><template #default="{ row }"
-            ><el-switch
-              :model-value="row.isRecommended"
-              :disabled="row.status !== 'published'"
-              @change="updateRecommended(row, Boolean($event))" /></template
-        ></el-table-column>
-        <el-table-column label="状态" width="110"
-          ><template #default="{ row }"
-            ><el-select :model-value="row.status" size="small" @change="updateStatus(row, $event)"
-              ><el-option label="草稿" value="draft" /><el-option
-                label="已发布"
-                value="published" /><el-option
-                label="已下架"
-                value="disabled" /></el-select></template
-        ></el-table-column>
-        <el-table-column label="更新时间" width="110"
-          ><template #default="{ row }">{{ formatDate(row.updatedAt) }}</template></el-table-column
-        >
-        <el-table-column label="操作" width="105" fixed="right"
-          ><template #default="{ row }"
-            ><el-button link type="primary" @click="showDetail(row)">查看</el-button
-            ><el-button link type="primary" @click="openEditCase(row)">编辑</el-button></template
-          ></el-table-column
-        >
-      </el-table>
+            </template>
+          </el-table-column>
+          <el-table-column label="改造前" width="112" align="center">
+            <template #default="{ row }">
+              <div class="table-cover before">
+                <span>改造前</span>
+                <img
+                  v-if="row.beforeImage"
+                  :src="row.beforeImage"
+                  alt="改造前封面"
+                  @error="($event.target as HTMLImageElement).style.display = 'none'"
+                />
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="改造后" width="112" align="center">
+            <template #default="{ row }">
+              <div class="table-cover after">
+                <span>改造后</span>
+                <img
+                  v-if="row.afterImage"
+                  :src="row.afterImage"
+                  alt="改造后封面"
+                  @error="($event.target as HTMLImageElement).style.display = 'none'"
+                />
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="房屋信息" min-width="150"
+            ><template #default="{ row }">
+              <div>{{ row.city }} · {{ row.roomType }}</div>
+              <small class="muted">{{ row.area }}㎡ · {{ row.style || '未设置风格' }}</small>
+            </template></el-table-column
+          >
+          <el-table-column label="总花费" width="105"
+            ><template #default="{ row }"
+              >¥{{ formatPrice(row.totalPrice) }}</template
+            ></el-table-column
+          >
+          <el-table-column label="工期" width="78"
+            ><template #default="{ row }">{{ row.durationDays }}天</template></el-table-column
+          >
+          <el-table-column prop="quoteCount" label="报价人数" width="88" align="center" />
+          <el-table-column label="首页推荐" width="100" align="center"
+            ><template #default="{ row }"
+              ><el-switch
+                :model-value="row.isRecommended"
+                :disabled="row.status !== 'PUBLISHED'"
+                @change="updateRecommended(row, Boolean($event))" /></template
+          ></el-table-column>
+          <el-table-column label="状态" width="110"
+            ><template #default="{ row }"
+              ><el-select :model-value="row.status" size="small" @change="updateStatus(row, $event)"
+                ><el-option label="草稿" value="DRAFT" /><el-option
+                  label="已发布"
+                  value="PUBLISHED" /><el-option
+                  label="已下架"
+                  value="OFFLINE" /></el-select></template
+          ></el-table-column>
+          <el-table-column label="更新时间" width="110"
+            ><template #default="{ row }">{{
+              formatDate(row.updatedAt)
+            }}</template></el-table-column
+          >
+          <el-table-column label="操作" width="155" fixed="right"
+            ><template #default="{ row }"
+              ><el-button link type="primary" @click="showDetail(row)">查看</el-button
+              ><el-button link type="primary" @click="openEditCase(row)">编辑</el-button
+              ><el-button link type="danger" @click="removeCase(row)">删除</el-button></template
+            ></el-table-column
+          >
+        </el-table>
+      </div>
       <div class="pagination-wrap">
         <el-pagination
-          v-model:current-page="query.page"
+          v-model:current-page="query.pageNum"
           v-model:page-size="query.pageSize"
           :page-sizes="[5, 10, 20]"
           layout="total, sizes, prev, pager, next"
@@ -462,6 +492,7 @@ onMounted(async () => {
       :title="editingCategory ? '编辑案例分类' : '新增案例分类'"
       width="460px"
       destroy-on-close
+      :close-on-click-modal="false"
       @closed="categoryFormRef?.clearValidate()"
       ><el-form
         ref="categoryFormRef"
@@ -488,10 +519,7 @@ onMounted(async () => {
 
 <style scoped lang="scss">
 .case-page {
-  display: flex;
-  min-height: 0;
-  flex-direction: column;
-  gap: 14px;
+  width: 100%;
 }
 
 .filter-card,
@@ -516,7 +544,6 @@ onMounted(async () => {
 }
 
 .table-card {
-  min-height: 470px;
   padding: 22px;
 }
 

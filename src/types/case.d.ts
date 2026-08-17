@@ -1,5 +1,5 @@
 /** 案例发布状态 */
-export type CaseStatus = 'draft' | 'published' | 'disabled'
+export type CaseStatus = 'DRAFT' | 'PUBLISHED' | 'OFFLINE'
 
 /** 案例改造亮点 */
 export interface CaseHighlight {
@@ -26,9 +26,9 @@ export interface CaseListItem {
   /** 所属案例分类标识 */
   categoryId: number
   /** 改造前图片地址 */
-  beforeCover: string
+  beforeImage: string
   /** 改造后图片地址 */
-  afterCover: string
+  afterImage: string
   /** 房屋所在城市 */
   city: string
   /** 房屋户型 */
@@ -45,14 +45,18 @@ export interface CaseListItem {
   durationDays: number
   /** 参与报价人数 */
   quoteCount: number
+  /** 案例浏览次数 */
+  viewCount: number
+  /** 分享标题 */
+  shareTitle?: string | null
+  /** 分享图片地址 */
+  shareImage?: string | null
   /** 是否推荐到首页 */
   isRecommended: boolean
   /** 首页推荐排序值 */
-  recommendSort?: number
+  recommendSort: number
   /** 案例发布状态 */
   status: CaseStatus
-  /** 案例发布时间 */
-  publishedAt?: string
   /** 案例创建时间 */
   createdAt: string
   /** 案例更新时间 */
@@ -76,9 +80,9 @@ export interface CaseSaveInput {
   /** 所属案例分类标识 */
   categoryId: number
   /** 改造前图片地址 */
-  beforeCover: string
+  beforeImage: string
   /** 改造后图片地址 */
-  afterCover: string
+  afterImage: string
   /** 房屋所在城市 */
   city: string
   /** 房屋户型 */
@@ -86,7 +90,7 @@ export interface CaseSaveInput {
   /** 房屋面积，单位为平方米 */
   area: number
   /** 装修风格 */
-  style?: string
+  style: string
   /** 案例标签列表 */
   tags: string[]
   /** 改造总花费，单位为元 */
@@ -104,7 +108,7 @@ export interface CaseSaveInput {
   /** 是否推荐到首页 */
   isRecommended: boolean
   /** 首页推荐排序值 */
-  recommendSort?: number
+  recommendSort: number
   /** 案例发布状态 */
   status: CaseStatus
 }
@@ -122,7 +126,7 @@ export interface CaseQuery {
   /** 首页推荐状态，空字符串表示全部 */
   isRecommended: boolean | ''
   /** 当前页码 */
-  page: number
+  pageNum: number
   /** 每页数据条数 */
   pageSize: number
 }
@@ -134,7 +138,9 @@ export interface CasePageResult {
   /** 符合条件的数据总数 */
   total: number
   /** 当前页码 */
-  page: number
+  pageNum: number
   /** 每页数据条数 */
   pageSize: number
+  /** 总页数 */
+  totalPage: number
 }

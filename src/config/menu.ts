@@ -37,6 +37,7 @@ export const menuGroups: MenuGroup[] = [
     children: [
       { title: '商品分类', path: '/product/category' },
       { title: '商品管理', path: '/product/goods' },
+      { title: '商品服务', path: '/product/services' },
     ],
   },
   {

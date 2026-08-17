@@ -370,6 +370,39 @@ body {
   }
 }
 
+// 通用满高页面布局：筛选区保持自然高度，主内容卡片占满剩余空间。
+.fill-page-layout {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.fill-content-card {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.fill-content-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+
+  > .el-table {
+    flex: 1;
+    min-height: 0;
+  }
+
+  > .el-empty {
+    flex: 1;
+  }
+}
+
 .placeholder-page {
   display: flex;
   min-height: 0;

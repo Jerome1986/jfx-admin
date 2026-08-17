@@ -49,6 +49,11 @@ const router = createRouter({
           component: () => import('@/views/product/goods.vue'),
           meta: { title: '商品管理' },
         },
+        {
+          path: '/product/services',
+          component: () => import('@/views/product/services.vue'),
+          meta: { title: '商品服务' },
+        },
         // 交易中心
         {
           path: '/trade/orders',

@@ -27,8 +27,8 @@ const uploadUrl = 'https://a9lhd8buo8.sealoshzh.site/upload/images'
 const createForm = (): CaseEditorForm => ({
   title: '',
   categoryId: 0,
-  beforeCover: '',
-  afterCover: '',
+  beforeImage: '',
+  afterImage: '',
   city: '',
   roomType: '',
   area: 0,
@@ -42,7 +42,7 @@ const createForm = (): CaseEditorForm => ({
   costs: [{ name: '', amount: 0 }],
   isRecommended: false,
   recommendSort: 99,
-  status: 'draft',
+  status: 'DRAFT',
 })
 // 保存案例新增或编辑表单数据。
 const form = reactive<CaseEditorForm>(createForm())
@@ -50,8 +50,8 @@ const form = reactive<CaseEditorForm>(createForm())
 const rules: FormRules = {
   title: [{ required: true, message: '请输入案例标题', trigger: 'blur' }],
   categoryId: [{ required: true, message: '请选择案例分类', trigger: 'change' }],
-  beforeCover: [{ required: true, message: '请上传改造前图片', trigger: 'change' }],
-  afterCover: [{ required: true, message: '请上传改造后图片', trigger: 'change' }],
+  beforeImage: [{ required: true, message: '请上传改造前图片', trigger: 'change' }],
+  afterImage: [{ required: true, message: '请上传改造后图片', trigger: 'change' }],
   city: [{ required: true, message: '请输入所在城市', trigger: 'blur' }],
   roomType: [{ required: true, message: '请输入户型', trigger: 'blur' }],
   area: [{ required: true, message: '请输入面积', trigger: 'change' }],
@@ -62,8 +62,28 @@ const rules: FormRules = {
 // 将未知异常转换为可展示的错误信息。
 const messageOf = (error: unknown) =>
   error instanceof Error ? error.message : '操作失败，请稍后重试'
-// 将完整案例详情填充到编辑表单。
-const fillForm = (item: CaseDetail) => Object.assign(form, item, { tagsText: item.tags.join('，') })
+// 仅将可编辑字段填充到表单，并将 Decimal 响应值转换为数字。
+const fillForm = (item: CaseDetail) =>
+  Object.assign(form, {
+    title: item.title,
+    categoryId: item.categoryId,
+    beforeImage: item.beforeImage,
+    afterImage: item.afterImage,
+    city: item.city,
+    roomType: item.roomType,
+    area: Number(item.area),
+    style: item.style ?? '',
+    tagsText: item.tags.join('，'),
+    totalPrice: Number(item.totalPrice),
+    durationDays: Number(item.durationDays),
+    quoteCount: Number(item.quoteCount),
+    description: item.description,
+    highlights: item.highlights.map((item) => ({ ...item })),
+    costs: item.costs.map((item) => ({ ...item, amount: Number(item.amount) })),
+    isRecommended: item.isRecommended,
+    recommendSort: Number(item.recommendSort),
+    status: item.status,
+  })
 // 在案例表单中追加一项改造亮点。
 const addHighlight = () => form.highlights.push({ title: '', description: '' })
 // 从案例表单中移除指定改造亮点。
@@ -74,7 +94,7 @@ const addCost = () => form.costs.push({ name: '', amount: 0 })
 const removeCost = (index: number) => form.costs.splice(index, 1)
 // 关闭案例编辑弹框。
 const close = () => emit('update:modelValue', false)
-type CoverField = 'beforeCover' | 'afterCover'
+type CoverField = 'beforeImage' | 'afterImage'
 
 const beforeUpload: UploadProps['beforeUpload'] = (file) => {
   // if (!file.type.startsWith('image/')) {
@@ -100,11 +120,11 @@ const setUploadedCover = (field: CoverField, response: unknown) => {
 
 const handleBeforeCoverSuccess: UploadProps['onSuccess'] = (response) => {
   console.log('改造前', response)
-  setUploadedCover('beforeCover', response)
+  setUploadedCover('beforeImage', response)
 }
 
 const handleAfterCoverSuccess: UploadProps['onSuccess'] = (response) => {
-  setUploadedCover('afterCover', response)
+  setUploadedCover('afterImage', response)
 }
 
 const handleUploadError: UploadProps['onError'] = () => {
@@ -133,11 +153,27 @@ const submit = async () => {
           .filter(Boolean),
       ),
     ]
-    // 移除仅供表单展示使用的标签文本字段。
-    const { tagsText: _tagsText, ...formData } = form
-    void _tagsText
-    // 组装案例仓储需要的保存参数。
-    const payload: CaseSaveInput = { ...formData, tags }
+    // 按后端 DTO 白名单组装参数，避免提交详情中的只读字段。
+    const payload: CaseSaveInput = {
+      title: form.title,
+      categoryId: Number(form.categoryId),
+      beforeImage: form.beforeImage,
+      afterImage: form.afterImage,
+      city: form.city,
+      roomType: form.roomType,
+      area: Number(form.area),
+      style: form.style,
+      tags,
+      totalPrice: Number(form.totalPrice),
+      durationDays: Number(form.durationDays),
+      quoteCount: Number(form.quoteCount),
+      description: form.description,
+      highlights: form.highlights.map((item) => ({ ...item })),
+      costs: form.costs.map((item) => ({ ...item, amount: Number(item.amount) })),
+      isRecommended: form.isRecommended,
+      recommendSort: Number(form.recommendSort),
+      status: form.status,
+    }
     if (props.caseId) await caseApi.update(props.caseId, payload)
     else await caseApi.create(payload)
     ElMessage.success(props.caseId ? '案例编辑成功' : '案例新增成功')
@@ -155,8 +191,10 @@ watch(
   async (visible) => {
     if (!visible) return
     formRef.value?.clearValidate()
-    if (props.caseId) fillForm(await caseApi.detail(props.caseId))
-    else
+    if (props.caseId) {
+      const { data } = await caseApi.detail(props.caseId)
+      fillForm(data)
+    } else
       Object.assign(form, createForm(), {
         categoryId: props.categories.find((item) => item.isEnabled)?.id ?? 0,
       })
@@ -171,6 +209,7 @@ watch(
     width="860px"
     top="4vh"
     destroy-on-close
+    :close-on-click-modal="false"
     class="case-editor-dialog"
     @update:model-value="emit('update:modelValue', $event)"
   >
@@ -191,9 +230,9 @@ watch(
         ></el-form-item>
         <el-form-item label="发布状态"
           ><el-select v-model="form.status"
-            ><el-option label="草稿" value="draft" /><el-option
+            ><el-option label="草稿" value="DRAFT" /><el-option
               label="已发布"
-              value="published" /><el-option label="已下架" value="disabled" /></el-select
+              value="PUBLISHED" /><el-option label="已下架" value="OFFLINE" /></el-select
         ></el-form-item>
         <el-form-item label="所在城市" prop="city"><el-input v-model="form.city" /></el-form-item>
         <el-form-item label="户型" prop="roomType"
@@ -212,7 +251,7 @@ watch(
       </div>
       <div class="section-title">改造图片</div>
       <div class="editor-covers">
-        <el-form-item label="改造前" prop="beforeCover">
+        <el-form-item label="改造前" prop="beforeImage">
           <el-upload
             class="cover-uploader"
             :action="uploadUrl"
@@ -222,22 +261,22 @@ watch(
             :before-upload="beforeUpload"
           >
             <div class="editor-cover before">
-              <img v-if="form.beforeCover" :src="form.beforeCover" alt="改造前图片" />
+              <img v-if="form.beforeImage" :src="form.beforeImage" alt="改造前图片" />
               <el-icon v-else>
                 <Plus />
               </el-icon>
             </div>
           </el-upload>
           <el-button
-            v-if="form.beforeCover"
+            v-if="form.beforeImage"
             class="remove-cover"
             :icon="Delete"
             circle
             title="删除改造前图片"
-            @click.stop="removeCover('beforeCover')"
+            @click.stop="removeCover('beforeImage')"
           />
         </el-form-item>
-        <el-form-item label="改造后" prop="afterCover">
+        <el-form-item label="改造后" prop="afterImage">
           <el-upload
             class="cover-uploader"
             :action="uploadUrl"
@@ -247,19 +286,19 @@ watch(
             :before-upload="beforeUpload"
           >
             <div class="editor-cover after">
-              <img v-if="form.afterCover" :src="form.afterCover" alt="改造后图片" />
+              <img v-if="form.afterImage" :src="form.afterImage" alt="改造后图片" />
               <el-icon v-else>
                 <Plus />
               </el-icon>
             </div>
           </el-upload>
           <el-button
-            v-if="form.afterCover"
+            v-if="form.afterImage"
             class="remove-cover"
             :icon="Delete"
             circle
             title="删除改造后图片"
-            @click.stop="removeCover('afterCover')"
+            @click.stop="removeCover('afterImage')"
           />
         </el-form-item>
       </div>
@@ -282,7 +321,7 @@ watch(
           ><el-input-number v-model="form.quoteCount" :min="0"
         /></el-form-item>
         <el-form-item label="首页推荐"
-          ><el-switch v-model="form.isRecommended" :disabled="form.status !== 'published'"
+          ><el-switch v-model="form.isRecommended" :disabled="form.status !== 'PUBLISHED'"
         /></el-form-item>
         <el-form-item label="推荐排序"
           ><el-input-number

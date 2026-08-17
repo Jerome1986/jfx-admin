@@ -10,10 +10,10 @@ const formatPrice = (value: number) =>
   value >= 10000 ? `${Number((value / 10000).toFixed(2))}万` : `${value.toLocaleString('zh-CN')}元`
 // 返回案例状态对应的中文名称。
 const statusLabel = (status: CaseStatus) =>
-  ({ draft: '草稿', published: '已发布', disabled: '已下架' })[status]
+  ({ DRAFT: '草稿', PUBLISHED: '已发布', OFFLINE: '已下架' })[status]
 // 返回案例状态对应的标签样式。
 const statusTag = (status: CaseStatus) =>
-  ({ draft: 'info', published: 'success', disabled: 'warning' })[status] as
+  ({ DRAFT: 'info', PUBLISHED: 'success', OFFLINE: 'warning' })[status] as
     'info' | 'success' | 'warning'
 </script>
 
@@ -31,8 +31,8 @@ const statusTag = (status: CaseStatus) =>
           <div class="cover-placeholder before">
             <span>改造前图片</span
             ><img
-              v-if="detail.beforeCover"
-              :src="detail.beforeCover"
+              v-if="detail.beforeImage"
+              :src="detail.beforeImage"
               alt="改造前图片"
               @error="($event.target as HTMLImageElement).style.display = 'none'"
             />
@@ -43,8 +43,8 @@ const statusTag = (status: CaseStatus) =>
           <div class="cover-placeholder after">
             <span>改造后图片</span
             ><img
-              v-if="detail.afterCover"
-              :src="detail.afterCover"
+              v-if="detail.afterImage"
+              :src="detail.afterImage"
               alt="改造后图片"
               @error="($event.target as HTMLImageElement).style.display = 'none'"
             />

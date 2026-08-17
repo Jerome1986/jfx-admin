@@ -9,8 +9,9 @@ const props = withDefaults(
     section: string
     title: string
     filters?: readonly PageFilter[]
+    showCreate?: boolean
   }>(),
-  { filters: () => [] },
+  { filters: () => [], showCreate: true },
 )
 
 // 保存占位页面的动态查询值。
@@ -33,7 +34,7 @@ const resetQuery = () => {
 </script>
 
 <template>
-  <section class="placeholder-page">
+  <section class="placeholder-page fill-page-layout">
     <div v-if="filters.length" class="filter-card">
       <el-form :inline="true" :model="query" label-position="left">
         <el-form-item v-for="filter in filters" :key="filter.key" :label="filter.label">
@@ -73,15 +74,17 @@ const resetQuery = () => {
       </el-form>
     </div>
 
-    <div class="table-card">
+    <div class="table-card fill-content-card">
       <div class="table-toolbar">
         <div>
           <h2>{{ title }}</h2>
           <p>{{ section }}数据列表</p>
         </div>
-        <el-button type="primary">新增</el-button>
+        <el-button v-if="showCreate" type="primary">新增</el-button>
       </div>
-      <el-empty description="暂无数据" />
+      <div class="fill-content-body">
+        <el-empty description="暂无数据" />
+      </div>
     </div>
   </section>
 </template>
