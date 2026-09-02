@@ -16,6 +16,7 @@
     "check": "run-p type-check lint format:check"
   },
   "dependencies": {
+    "@amap/amap-jsapi-loader": "^1.0.1",
     "@element-plus/icons-vue": "^2.3.2",
     "axios": "^1.19.0",
     "element-plus": "^2.14.3",
@@ -26,6 +27,7 @@
   },
   "devDependencies": {
     "@tsconfig/node24": "^24.0.4",
+    "@types/amap-js-api": "^1.4.16",
     "@types/node": "^24.13.3",
     "@vitejs/plugin-vue": "^6.0.8",
     "@vue/eslint-config-typescript": "^14.9.0",

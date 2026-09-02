@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Delete, Plus } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules, UploadProps } from 'element-plus'
@@ -17,7 +17,7 @@ const props = defineProps<{
 // 定义案例编辑组件的关闭和保存事件。
 const emit = defineEmits<{ 'update:modelValue': [value: boolean]; saved: [] }>()
 // 定义包含标签文本的案例编辑表单结构。
-type CaseEditorForm = Omit<CaseSaveInput, 'tags'> & { tagsText: string }
+type CaseEditorForm = Omit<CaseSaveInput, 'tags' | 'totalPrice'> & { tagsText: string }
 // 引用案例表单实例以执行校验。
 const formRef = ref<FormInstance>()
 // 标记案例表单是否正在提交。
@@ -34,7 +34,6 @@ const createForm = (): CaseEditorForm => ({
   area: 0,
   style: '',
   tagsText: '',
-  totalPrice: 0,
   durationDays: 1,
   quoteCount: 0,
   description: '',
@@ -55,7 +54,6 @@ const rules: FormRules = {
   city: [{ required: true, message: '请输入所在城市', trigger: 'blur' }],
   roomType: [{ required: true, message: '请输入户型', trigger: 'blur' }],
   area: [{ required: true, message: '请输入面积', trigger: 'change' }],
-  totalPrice: [{ required: true, message: '请输入总花费', trigger: 'change' }],
   durationDays: [{ required: true, message: '请输入工期', trigger: 'change' }],
   description: [{ required: true, message: '请输入案例说明', trigger: 'blur' }],
 }
@@ -74,7 +72,6 @@ const fillForm = (item: CaseDetail) =>
     area: Number(item.area),
     style: item.style ?? '',
     tagsText: item.tags.join('，'),
-    totalPrice: Number(item.totalPrice),
     durationDays: Number(item.durationDays),
     quoteCount: Number(item.quoteCount),
     description: item.description,
@@ -92,11 +89,16 @@ const removeHighlight = (index: number) => form.highlights.splice(index, 1)
 const addCost = () => form.costs.push({ name: '', amount: 0 })
 // 从案例表单中移除指定费用明细。
 const removeCost = (index: number) => form.costs.splice(index, 1)
+// 使用分为单位汇总费用明细，避免直接累加小数产生浮点精度误差。
+const totalPrice = computed(
+  () =>
+    form.costs.reduce((total, item) => total + Math.round(Number(item.amount || 0) * 100), 0) / 100,
+)
 // 关闭案例编辑弹框。
 const close = () => emit('update:modelValue', false)
 type CoverField = 'beforeImage' | 'afterImage'
 
-const beforeUpload: UploadProps['beforeUpload'] = (file) => {
+const beforeUpload: UploadProps['beforeUpload'] = () => {
   // if (!file.type.startsWith('image/')) {
   //   ElMessage.warning('只能上传图片文件')
   //   return false
@@ -164,7 +166,7 @@ const submit = async () => {
       area: Number(form.area),
       style: form.style,
       tags,
-      totalPrice: Number(form.totalPrice),
+      totalPrice: totalPrice.value,
       durationDays: Number(form.durationDays),
       quoteCount: Number(form.quoteCount),
       description: form.description,
@@ -304,14 +306,13 @@ watch(
       </div>
       <div class="section-title">费用与工期</div>
       <div class="form-grid">
-        <el-form-item label="总花费" prop="totalPrice"
-          ><el-input-number
-            v-model="form.totalPrice"
-            :min="0"
-            :max="999999999"
-            :precision="2"
-          /><span class="unit">元</span></el-form-item
-        >
+        <div class="total-price-item">
+          <span class="total-price-label">总花费</span>
+          <div class="total-price-display">
+            <span class="total-price-value">{{ totalPrice.toFixed(2) }}</span>
+            <span class="unit">元</span>
+          </div>
+        </div>
         <el-form-item label="施工工期" prop="durationDays"
           ><el-input-number v-model="form.durationDays" :min="1" :max="9999" /><span class="unit"
             >天</span
@@ -463,6 +464,36 @@ watch(
   margin-left: 8px;
   color: var(--jfx-muted);
   font-size: 12px;
+}
+
+.total-price-value {
+  color: var(--el-text-color-primary);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.total-price-item {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  align-items: center;
+  height: 32px;
+  margin-bottom: 18px;
+}
+
+.total-price-label {
+  padding-right: 12px;
+  color: var(--el-text-color-regular);
+  font-size: var(--el-form-label-font-size);
+  line-height: 32px;
+  text-align: right;
+}
+
+.total-price-display {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .dynamic-heading {

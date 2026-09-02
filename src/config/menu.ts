@@ -90,6 +90,7 @@ export const menuGroups: MenuGroup[] = [
     title: '服务支持',
     icon: Service,
     children: [
+      { title: '服务城市', path: '/support/cities' },
       { title: '服务网点', path: '/support/outlets' },
       { title: '意见反馈', path: '/support/feedback' },
     ],

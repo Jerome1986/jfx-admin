@@ -111,6 +111,11 @@ const router = createRouter({
         },
         // 服务支持
         {
+          path: '/support/cities',
+          component: () => import('@/views/support/cities.vue'),
+          meta: { title: '服务城市' },
+        },
+        {
           path: '/support/outlets',
           component: () => import('@/views/support/outlets.vue'),
           meta: { title: '服务网点' },

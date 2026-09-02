@@ -5,6 +5,9 @@ settings:
   excludeLinksFromLockfile: false
 
 dependencies:
+  '@amap/amap-jsapi-loader':
+    specifier: ^1.0.1
+    version: 1.0.1
   '@element-plus/icons-vue':
     specifier: ^2.3.2
     version: 2.3.2(vue@3.5.41)
@@ -31,6 +34,9 @@ devDependencies:
   '@tsconfig/node24':
     specifier: ^24.0.4
     version: 24.0.4
+  '@types/amap-js-api':
+    specifier: ^1.4.16
+    version: 1.4.16
   '@types/node':
     specifier: ^24.13.3
     version: 24.13.3
@@ -87,6 +93,10 @@ devDependencies:
     version: 3.3.9(typescript@6.0.3)
 
 packages:
+
+  /@amap/amap-jsapi-loader@1.0.1:
+    resolution: {integrity: sha512-nPyLKt7Ow/ThHLkSvn2etQlUzqxmTVgK7bIgwdBRTg2HK5668oN7xVxkaiRe3YZEzGzfV2XgH5Jmu2T73ljejw==}
+    dev: false
 
   /@babel/code-frame@7.29.7:
     resolution: {integrity: sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw==}
@@ -843,6 +853,10 @@ packages:
 
   /@tsconfig/node24@24.0.4:
     resolution: {integrity: sha512-2A933l5P5oCbv6qSxHs7ckKwobs8BDAe9SJ/Xr2Hy+nDlwmLE1GhFh/g/vXGRZWgxBg9nX/5piDtHR9Dkw/XuA==}
+    dev: true
+
+  /@types/amap-js-api@1.4.16:
+    resolution: {integrity: sha512-gfcEswuU4GNRdGAh74FhxfLlU6qxmVIJYPf3HV0uKucCWQ9iSr8TonDhqBvHVmmQEY60K+UAeIh0YLwKo/jpFQ==}
     dev: true
 
   /@types/esrecurse@4.3.1:
