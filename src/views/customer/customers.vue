@@ -1,35 +1,58 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import { userApi } from '@/api/users'
 import UserEditorDialog from './UserEditorDialog.vue'
+import CustomerDetailDrawer from './CustomerDetailDrawer.vue'
 import type { CustomerUser, CustomerUserRole, UserListParams } from '@/types/customerUser'
 
+// 保存客户详情抽屉状态。
+const detailVisible = ref(false)
+const detailUser = ref<CustomerUser>()
+// 打开客户详情和优惠券入口。
+const openDetail = (row: CustomerUser) => {
+  detailUser.value = row
+  detailVisible.value = true
+}
+
+// 标记数据是否正在加载。
 const loading = ref(false)
+// 保存列表展示数据。
 const rows = ref<CustomerUser[]>([])
+// 保存列表记录总数。
 const total = ref(0)
+// 控制编辑弹窗的显示状态。
 const dialogVisible = ref(false)
+// 保存当前编辑记录的 ID。
 const editingId = ref<number>()
+// 保存列表筛选条件。
 const query = reactive({
   keyword: '',
   role: '' as '' | CustomerUserRole,
   status: '' as '' | boolean,
 })
+// 保存当前页码和每页条数。
 const pagination = reactive({ pageNum: 1, pageSize: 10 })
 
+// 将异常转换为可展示的错误消息。
 const messageOf = (error: unknown) =>
   error instanceof Error ? error.message : '操作失败，请稍后重试'
+// 将日期转换为页面显示文本。
 const formatDate = (value: string) => new Date(value).toLocaleString('zh-CN', { hour12: false })
+// 获取优先使用真实姓名的显示名称。
 const displayName = (row: CustomerUser) => row.realName || row.nickname || '未完善资料'
 
+// 加载列表数据并更新页面状态。
 const loadData = async () => {
   loading.value = true
   try {
+    // 组装列表查询和分页参数。
     const params: UserListParams = { pageNum: pagination.pageNum, pageSize: pagination.pageSize }
     if (query.keyword.trim()) params.keyword = query.keyword.trim()
     if (query.role) params.role = query.role
     if (query.status !== '') params.status = query.status
+    // 获取接口返回的业务数据。
     const { data } = await userApi.list(params)
     rows.value = data.list
     total.value = data.total
@@ -42,18 +65,22 @@ const loadData = async () => {
   }
 }
 
+// 应用当前筛选条件查询列表。
 const search = () => {
   pagination.pageNum = 1
   loadData()
 }
+// 清空筛选条件并更新列表。
 const resetQuery = () => {
   Object.assign(query, { keyword: '', role: '', status: '' })
   search()
 }
+// 设置编辑记录并打开编辑弹窗。
 const openEdit = (row: CustomerUser) => {
   editingId.value = row.id
   dialogVisible.value = true
 }
+// 确认后禁用当前用户并刷新列表。
 const disable = async (row: CustomerUser) => {
   try {
     await ElMessageBox.confirm(
@@ -70,6 +97,7 @@ const disable = async (row: CustomerUser) => {
   }
 }
 
+// 页面挂载后加载初始数据。
 onMounted(loadData)
 </script>
 
@@ -116,8 +144,8 @@ onMounted(loadData)
           empty-text="暂无用户"
         >
           <el-table-column label="用户" min-width="230" fixed="left"
-            ><template #default="{ row }"
-              ><div class="user-cell">
+            ><template #default="{ row }">
+              <div class="user-cell">
                 <el-avatar :size="42" :src="row.avatar || undefined">{{
                   displayName(row).slice(0, 1)
                 }}</el-avatar>
@@ -125,9 +153,12 @@ onMounted(loadData)
                   <strong>{{ displayName(row) }}</strong
                   ><small>{{ row.nickname || '暂无昵称' }} · {{ row.userNo }}</small>
                 </div>
-              </div></template
-            ></el-table-column
+              </div>
+            </template></el-table-column
           >
+          <el-table-column prop="realName" label="姓名" min-width="120">
+            <template #default="{ row }">{{ row.realName || '—' }}</template>
+          </el-table-column>
           <el-table-column prop="mobile" label="手机号" width="130" />
           <el-table-column label="角色" width="90" align="center"
             ><template #default="{ row }"
@@ -138,7 +169,7 @@ onMounted(loadData)
           >
           <el-table-column label="来源/城市" min-width="145"
             ><template #default="{ row }"
-              >{{ row.source || '—' }}<br /><small class="muted">{{
+              >{{ row.source || '小程序' }}<br /><small class="muted">{{
                 row.city || '城市未填写'
               }}</small></template
             ></el-table-column
@@ -167,8 +198,9 @@ onMounted(loadData)
               formatDate(row.createdAt)
             }}</template></el-table-column
           >
-          <el-table-column label="操作" width="125" fixed="right"
+          <el-table-column label="操作" width="185" fixed="right"
             ><template #default="{ row }"
+              ><el-button link type="primary" @click="openDetail(row)">详情</el-button
               ><el-button link type="primary" @click="openEdit(row)">编辑</el-button
               ><el-button v-if="row.status" link type="danger" @click="disable(row)"
                 >禁用</el-button
@@ -189,6 +221,8 @@ onMounted(loadData)
         />
       </div>
     </div>
+    <!-- 客户资料与优惠券详情。 -->
+    <CustomerDetailDrawer v-model="detailVisible" :user="detailUser" />
     <UserEditorDialog v-model="dialogVisible" :user-id="editingId" @saved="loadData" />
   </section>
 </template>
@@ -201,49 +235,61 @@ onMounted(loadData)
   border: 1px solid var(--jfx-border);
   border-radius: 10px;
 }
+
 .filter-card {
   padding-bottom: 2px;
+
   .el-input {
     width: 270px;
   }
+
   .el-select {
     width: 160px;
   }
 }
+
 .table-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 20px;
+
   h2 {
     margin: 0;
     font-size: 17px;
   }
+
   p {
     margin: 6px 0 0;
     color: var(--jfx-muted);
     font-size: 12px;
   }
 }
+
 .user-cell {
   display: flex;
   align-items: center;
   gap: 11px;
+
   strong,
   small {
     display: block;
   }
+
   strong {
     margin-bottom: 6px;
   }
+
   small {
     color: var(--jfx-muted);
   }
 }
+
 .muted {
   color: var(--jfx-muted);
   line-height: 24px;
 }
+
 .pagination-wrap {
   display: flex;
   justify-content: flex-end;

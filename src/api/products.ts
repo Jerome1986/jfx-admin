@@ -1,9 +1,19 @@
 import { request } from '@/utils/request'
-import type { Product, ProductInput, ProductUpdateInput } from '@/types/product'
+import type {
+  Product,
+  ProductInput,
+  ProductUpdateInput,
+  ProductListParams,
+  ProductPageParams,
+  ProductPageResult,
+} from '@/types/product'
 
 export const productApi = {
-  list() {
-    return request<Product[]>({ method: 'GET', url: '/product' })
+  list(params?: ProductListParams) {
+    return request<Product[]>({ method: 'GET', url: '/product', params })
+  },
+  page(params: ProductPageParams) {
+    return request<ProductPageResult>({ method: 'GET', url: '/product', params })
   },
   detail(id: number) {
     return request<Product>({ method: 'GET', url: `/product/${id}` })

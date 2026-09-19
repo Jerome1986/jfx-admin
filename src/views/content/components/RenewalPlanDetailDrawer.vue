@@ -6,25 +6,36 @@ import { renewalPlanApi } from '@/api/renewalPlans'
 import type { RenewalPlan, RenewalPlanStatus } from '@/types/renewalPlan'
 import { calculateRenewalPlanPrice } from '@/utils/renewalPlan'
 
+// 接收父组件传入的属性。
 const props = defineProps<{ modelValue: boolean; planId?: number }>()
+// 定义组件向父组件发送的事件。
 const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>()
 
+// 标记数据是否正在加载。
 const loading = ref(false)
+// 保存当前记录的详情数据。
 const detail = ref<RenewalPlan>()
+// 整理详情中可展示的图片列表。
 const gallery = computed(() =>
   detail.value ? [detail.value.cover, ...(detail.value.images ?? [])].filter(Boolean) as string[] : [],
 )
+// 计算方案项目的合计价格。
 const itemsTotal = computed(() => calculateRenewalPlanPrice(detail.value?.items))
+// 提供状态对应的中文名称。
 const statusLabel = (status: RenewalPlanStatus) =>
   ({ DRAFT: '草稿', PUBLISHED: '已发布', OFFLINE: '已下架' })[status]
+// 获取状态对应的标签样式。
 const statusType = (status: RenewalPlanStatus) =>
   ({ DRAFT: 'warning', PUBLISHED: 'success', OFFLINE: 'info' })[status] as
     | 'warning'
     | 'success'
     | 'info'
+// 将日期转换为页面显示文本。
 const formatDate = (value?: string) => (value ? new Date(value).toLocaleString('zh-CN') : '—')
+// 将金额转换为页面显示文本。
 const formatPrice = (value: number | string) => Number(value).toFixed(2)
 
+// 抽屉打开或方案变更时加载对应详情。
 watch(
   () => [props.modelValue, props.planId] as const,
   async ([visible, planId]) => {
@@ -32,6 +43,7 @@ watch(
     detail.value = undefined
     loading.value = true
     try {
+      // 获取接口返回的业务数据。
       const { data } = await renewalPlanApi.detail(planId)
       detail.value = data
     } catch (error) {

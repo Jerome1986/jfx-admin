@@ -5,14 +5,17 @@ import type { FormInstance, FormRules } from 'element-plus'
 import { addressApi } from '@/api/addresses'
 import type { AddressInput, ServiceAddress, UpdateAddressInput } from '@/types/address'
 
+// 接收父组件传入的属性。
 const props = defineProps<{
   modelValue: boolean
   addressId?: number
   address?: ServiceAddress
 }>()
+// 定义组件向父组件发送的事件。
 const emit = defineEmits<{ 'update:modelValue': [value: boolean]; saved: [] }>()
 type AddressForm = Omit<AddressInput, 'userId' | 'latitude' | 'longitude'>
 
+// 创建空白表单及默认值。
 const emptyForm = (): AddressForm => ({
   contactName: '',
   phone: '',
@@ -25,10 +28,15 @@ const emptyForm = (): AddressForm => ({
   isDefault: false,
   isEnabled: true,
 })
+// 引用表单实例，用于校验和重置。
 const formRef = ref<FormInstance>()
+// 保存表单编辑数据。
 const form = reactive<AddressForm>(emptyForm())
+// 标记数据是否正在加载。
 const loading = ref(false)
+// 标记表单是否正在提交。
 const submitting = ref(false)
+// 定义表单字段校验规则。
 const rules: FormRules<AddressForm> = {
   contactName: [{ required: true, message: '请输入联系人', trigger: 'blur' }],
   phone: [
@@ -41,27 +49,39 @@ const rules: FormRules<AddressForm> = {
   district: [{ required: true, message: '请输入区县', trigger: 'blur' }],
   address: [{ required: true, message: '请输入详细地址', trigger: 'blur' }],
 }
+// 通知父组件关闭当前弹窗。
 const close = () => emit('update:modelValue', false)
+// 将异常转换为可展示的错误消息。
 const messageOf = (error: unknown) =>
   error instanceof Error ? error.message : '操作失败，请稍后重试'
 
+// 从完整地址中识别并填写行政区划。
 const fillRegionFromAddress = () => {
+  // 保存去除首尾空格后的地址文本。
   const text = form.address.trim()
   if (!text) return
 
+  // 提取地址中的省级行政区。
   const province = text.match(/^(.+?(?:省|自治区|特别行政区))/)?.[1]
+  // 保存移除省级名称后的地址文本。
   const afterProvince = province ? text.slice(province.length) : text
+  // 识别地址中的直辖市名称。
   const municipality = text.match(/^(北京市|天津市|上海市|重庆市)/)?.[1]
+  // 提取地址中的城市名称。
   const city = municipality ?? afterProvince.match(/^(.+?市)/)?.[1]
+  // 保存移除城市名称后的地址文本。
   const afterCity =
     city && afterProvince.startsWith(city) ? afterProvince.slice(city.length) : afterProvince
+  // 提取地址中的区县名称。
   const district = afterCity.match(/^(.+?(?:区|县|旗))/)?.[1]
 
   if (!form.province) form.province = province ?? municipality ?? ''
   if (!form.city) form.city = city ?? ''
   if (!form.district) form.district = district ?? ''
 
+  // 保存待移除行政区划的详细地址。
   let streetAddress = text
+  // 逐一移除省市区前缀，保留详细街道地址。
   for (const region of [form.province, form.city, form.district]) {
     if (region && streetAddress.startsWith(region)) {
       streetAddress = streetAddress.slice(region.length)
@@ -70,9 +90,11 @@ const fillRegionFromAddress = () => {
   form.address = streetAddress
 }
 
+// 初始化表单并按需加载地址详情。
 const prepare = async () => {
   Object.assign(form, emptyForm())
   if (props.address) {
+    // 从地址详情中提取可编辑字段。
     const {
       userId: _userId,
       latitude: _latitude,
@@ -85,7 +107,9 @@ const prepare = async () => {
   if (props.addressId) {
     loading.value = true
     try {
+      // 获取接口返回的业务数据。
       const { data } = await addressApi.detail(props.addressId)
+      // 从地址详情中提取可编辑字段。
       const {
         userId: _userId,
         latitude: _latitude,
@@ -111,6 +135,7 @@ const prepare = async () => {
   await nextTick()
   formRef.value?.clearValidate()
 }
+// 弹窗打开或编辑对象变更时初始化表单。
 watch(
   () => [props.modelValue, props.addressId, props.address] as const,
   ([visible]) => {
@@ -118,10 +143,12 @@ watch(
   },
 )
 
+// 校验表单并提交保存。
 const submit = async () => {
   if (!(await formRef.value?.validate().catch(() => false))) return
   submitting.value = true
   try {
+    // 组装待提交的地址修改数据。
     const data: UpdateAddressInput = {
       ...form,
       contactName: form.contactName.trim(),

@@ -19,6 +19,7 @@ import type {
   ServiceOutletPoi,
 } from '@/types/serviceOutlet'
 
+// 创建空白表单及默认值。
 const emptyForm = (): ServiceOutletForm => ({
   name: '',
   businessHours: '',
@@ -33,31 +34,56 @@ const emptyForm = (): ServiceOutletForm => ({
   sort: 0,
   status: true,
 })
+// 配置图片上传接口地址。
 const uploadUrl = 'https://a9lhd8buo8.sealoshzh.site/upload/images'
+// 标记数据是否正在加载。
 const loading = ref(false)
+// 标记表单是否正在提交。
 const submitting = ref(false)
+// 标记详情是否正在加载。
 const detailLoading = ref(false)
+// 控制编辑弹窗的显示状态。
 const dialogVisible = ref(false)
+// 引用表单实例，用于校验和重置。
 const formRef = ref<FormInstance>()
+// 引用地图挂载容器。
 const mapContainerRef = ref<HTMLElement>()
+// 保存当前编辑记录的 ID。
 const editingId = ref<number>()
+// 保存列表展示数据。
 const rows = ref<ServiceOutlet[]>([])
+// 保存可选择的服务城市。
 const cityOptions = ref<ServiceCity[]>([])
+// 保存列表记录总数。
 const total = ref(0)
+// 保存列表筛选条件。
 const query = reactive({ keyword: '', cityId: '' as '' | number, status: '' as '' | boolean })
+// 保存当前页码和每页条数。
 const pagination = reactive({ pageNum: 1, pageSize: 10 })
+// 保存表单编辑数据。
 const form = reactive<ServiceOutletForm>(emptyForm())
+// 保存地图地点搜索关键字。
 const mapKeyword = ref('')
+// 标记地图是否正在初始化。
 const mapLoading = ref(false)
+// 标记地点是否正在搜索。
 const searching = ref(false)
+// 保存地图加载失败的提示。
 const mapError = ref('')
+// 保存地点搜索的状态提示。
 const searchMessage = ref('请输入关键词搜索地点')
+// 保存地图地点搜索结果。
 const poiResults = ref<ServiceOutletPoi[]>([])
+// 保存当前选中地点的标识。
 const selectedPoiId = ref('')
+// 保存高德地图运行时对象。
 let amap: AmapRuntime | undefined
+// 保存当前地图实例。
 let map: AmapMapInstance | undefined
+// 保存地图上已绘制的标记。
 let markers: AmapMarkerInstance[] = []
 
+// 定义表单字段校验规则。
 const rules: FormRules<ServiceOutletForm> = {
   name: [{ required: true, message: '请输入网点名称', trigger: 'blur' }],
   businessHours: [{ required: true, message: '请输入营业时间', trigger: 'blur' }],
@@ -65,6 +91,7 @@ const rules: FormRules<ServiceOutletForm> = {
   address: [{ required: true, message: '请输入详细地址', trigger: 'blur' }],
   latitude: [
     {
+      // 校验是否已通过地图选择有效坐标。
       validator: (_rule, value, callback) =>
         typeof value === 'number' ? callback() : callback(new Error('请通过地图选择地点')),
       trigger: 'change',
@@ -73,14 +100,17 @@ const rules: FormRules<ServiceOutletForm> = {
   sort: [{ required: true, message: '请输入排序值', trigger: 'change' }],
 }
 
+// 将地图返回的文本或数组统一为文本。
 const textValue = (value: string | string[] | undefined) =>
   Array.isArray(value) ? value[0] || '' : value || ''
 
+// 清除地图上的全部标记。
 const clearMarkers = () => {
   markers.forEach((marker) => marker.setMap(null))
   markers = []
 }
 
+// 将选中地点的坐标和地址填入表单。
 const selectPoi = (poi: ServiceOutletPoi) => {
   selectedPoiId.value = poi.id
   form.longitude = poi.longitude
@@ -92,10 +122,12 @@ const selectPoi = (poi: ServiceOutletPoi) => {
   formRef.value?.validateField('latitude').catch(() => undefined)
 }
 
+// 在地图上绘制搜索结果标记。
 const drawPoiMarkers = () => {
   if (!amap || !map) return
   clearMarkers()
   markers = poiResults.value.map((poi) => {
+    // 创建当前地点的地图标记。
     const marker = new amap!.Marker({
       map,
       position: [poi.longitude, poi.latitude],
@@ -107,9 +139,11 @@ const drawPoiMarkers = () => {
   if (markers.length) map.setFitView(markers, false)
 }
 
+// 在地图上标记表单中的当前位置。
 const drawCurrentPoint = () => {
   if (!amap || !map || form.longitude === undefined || form.latitude === undefined) return
   clearMarkers()
+  // 创建当前地点的地图标记。
   const marker = new amap.Marker({
     map,
     position: [form.longitude, form.latitude],
@@ -119,6 +153,7 @@ const drawCurrentPoint = () => {
   map.setZoomAndCenter(17, [form.longitude, form.latitude])
 }
 
+// 将地图原始地点转换为页面需要的数据。
 const normalizePoi = (poi: AmapRawPoi, index: number): ServiceOutletPoi | undefined => {
   if (!poi.location) return undefined
   return {
@@ -133,21 +168,26 @@ const normalizePoi = (poi: AmapRawPoi, index: number): ServiceOutletPoi | undefi
   }
 }
 
+// 按关键字和城市搜索地图地点。
 const searchPlaces = async () => {
+  // 整理用于搜索匹配的关键字。
   const keyword = mapKeyword.value.trim()
   if (!keyword) return ElMessage.warning('请输入地点关键词')
   if (!amap || !map) return ElMessage.error(mapError.value || '地图尚未加载完成')
   searching.value = true
   searchMessage.value = '正在搜索地点…'
   selectedPoiId.value = ''
+  // 获取表单选中的服务城市。
   const selectedCity = cityOptions.value.find((city) => city.id === form.cityId)
   try {
+    // 创建地图地点搜索实例。
     const placeSearch = new amap.PlaceSearch({
       city: selectedCity?.name,
       citylimit: Boolean(selectedCity),
       pageSize: 20,
       pageIndex: 1,
     })
+    // 等待并保存地图地点搜索结果。
     const result = await new Promise<ServiceOutletPoi[]>((resolve, reject) => {
       placeSearch.search(keyword, (status, response) => {
         if (status !== 'complete' || typeof response === 'string') {
@@ -176,10 +216,13 @@ const searchPlaces = async () => {
   }
 }
 
+// 加载地图服务并初始化地图。
 const initMap = async () => {
   await nextTick()
   if (!mapContainerRef.value || map) return
+  // 读取地图服务的访问密钥配置。
   const key = import.meta.env.VITE_AMAP_KEY?.trim()
+  // 读取地图服务的安全校验配置。
   const securityJsCode = import.meta.env.VITE_AMAP_SECURITY_CODE?.trim()
   if (!key || !securityJsCode) {
     mapError.value = '缺少高德地图环境变量，请配置 VITE_AMAP_KEY 和 VITE_AMAP_SECURITY_CODE'
@@ -207,6 +250,7 @@ const initMap = async () => {
   }
 }
 
+// 销毁地图实例并清理关联状态。
 const destroyMap = () => {
   clearMarkers()
   map?.destroy()
@@ -219,19 +263,26 @@ const destroyMap = () => {
   formRef.value?.resetFields()
 }
 
+// 将日期转换为页面显示文本。
 const formatDate = (value: string) => new Date(value).toLocaleString('zh-CN', { hour12: false })
+// 获取网点所属城市的显示名称。
 const cityName = (row: ServiceOutlet) => row.serviceCity?.name ?? row.cityName ?? ''
+// 拼接用于展示的完整地址。
 const fullAddress = (row: ServiceOutlet) =>
   [row.province, cityName(row), row.district, row.address].filter(Boolean).join(' ')
 
+// 加载已启用的服务城市选项。
 const loadCityOptions = async () => {
+  // 获取接口返回的业务数据。
   const { data } = await serviceCityApi.enabled()
   cityOptions.value = data
 }
 
+// 加载列表数据并更新页面状态。
 const loadData = async () => {
   loading.value = true
   try {
+    // 组装列表查询和分页参数。
     const params: ServiceOutletListParams = {
       pageNum: pagination.pageNum,
       pageSize: pagination.pageSize,
@@ -239,6 +290,7 @@ const loadData = async () => {
     if (query.keyword.trim()) params.keyword = query.keyword.trim()
     if (query.cityId !== '') params.cityId = query.cityId
     if (query.status !== '') params.status = query.status
+    // 获取接口返回的业务数据。
     const { data } = await serviceOutletApi.list(params)
     rows.value = data.list
     total.value = data.total
@@ -249,20 +301,24 @@ const loadData = async () => {
   }
 }
 
+// 应用当前筛选条件查询列表。
 const search = () => {
   pagination.pageNum = 1
   loadData()
 }
+// 清空筛选条件并更新列表。
 const resetQuery = () => {
   Object.assign(query, { keyword: '', cityId: '', status: '' })
   search()
 }
+// 初始化并打开新增弹窗。
 const openCreate = () => {
   editingId.value = undefined
   Object.assign(form, emptyForm())
   mapKeyword.value = ''
   dialogVisible.value = true
 }
+// 将详情数据填入编辑表单。
 const fillForm = (row: ServiceOutlet) =>
   Object.assign(form, {
     name: row.name,
@@ -279,6 +335,7 @@ const fillForm = (row: ServiceOutlet) =>
     status: row.status,
   })
 
+// 设置编辑记录并打开编辑弹窗。
 const openEdit = async (row: ServiceOutlet) => {
   editingId.value = row.id
   fillForm(row)
@@ -286,6 +343,7 @@ const openEdit = async (row: ServiceOutlet) => {
   dialogVisible.value = true
   detailLoading.value = true
   try {
+    // 获取接口返回的业务数据。
     const { data } = await serviceOutletApi.detail(row.id)
     if (data.serviceCity && !cityOptions.value.some((city) => city.id === data.serviceCity?.id)) {
       cityOptions.value.push(data.serviceCity)
@@ -298,7 +356,9 @@ const openEdit = async (row: ServiceOutlet) => {
   }
 }
 
+// 去除文本首尾空格，并将空值转为未填写。
 const optionalText = (value: string) => value.trim() || undefined
+// 从网点表单组装接口提交参数。
 const buildPayload = (): ServiceOutletInput => ({
   name: form.name.trim(),
   businessHours: form.businessHours.trim(),
@@ -314,10 +374,12 @@ const buildPayload = (): ServiceOutletInput => ({
   status: form.status,
 })
 
+// 校验表单并提交保存。
 const submit = async () => {
   if (!(await formRef.value?.validate().catch(() => false))) return
   submitting.value = true
   try {
+    // 组装接口提交数据。
     const payload = buildPayload()
     if (editingId.value !== undefined) await serviceOutletApi.update(editingId.value, payload)
     else await serviceOutletApi.create(payload)
@@ -329,7 +391,9 @@ const submit = async () => {
   }
 }
 
+// 确认并切换当前记录的启用状态。
 const toggleStatus = async (row: ServiceOutlet) => {
+  // 生成本次状态切换的操作名称。
   const action = row.status ? '停用' : '启用'
   try {
     await ElMessageBox.confirm(`确定${action}“${row.name}”吗？`, `${action}网点`, {
@@ -345,6 +409,7 @@ const toggleStatus = async (row: ServiceOutlet) => {
   }
 }
 
+// 确认后删除当前记录并刷新列表。
 const remove = async (row: ServiceOutlet) => {
   try {
     await ElMessageBox.confirm(`删除“${row.name}”后无法恢复，确定继续吗？`, '删除网点', {
@@ -361,18 +426,22 @@ const remove = async (row: ServiceOutlet) => {
   }
 }
 
+// 处理图片上传前的检查。
 const beforeUpload: UploadProps['beforeUpload'] = (file) => {
   if (file.type.startsWith('image/')) return true
   ElMessage.warning('只能上传图片文件')
   return false
 }
+// 处理上传成功并回填图片地址。
 const uploadSuccess: UploadProps['onSuccess'] = (response) => {
   if (typeof response !== 'string') return ElMessage.error('上传接口未返回图片地址')
   form.cover = response
   ElMessage.success('封面上传成功')
 }
+// 提示图片上传失败。
 const uploadError: UploadProps['onError'] = () => ElMessage.error('封面上传失败')
 
+// 页面挂载后加载初始数据。
 onMounted(() => Promise.all([loadData(), loadCityOptions()]))
 </script>
 

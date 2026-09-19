@@ -7,7 +7,9 @@ import type { FormInstance, FormRules, UploadProps } from 'element-plus'
 import { userApi } from '@/api/users'
 import type { CustomerUserRole, UpdateUserParams } from '@/types/customerUser'
 
+// 接收父组件传入的属性。
 const props = defineProps<{ modelValue: boolean; userId?: number }>()
+// 定义组件向父组件发送的事件。
 const emit = defineEmits<{ 'update:modelValue': [value: boolean]; saved: [] }>()
 
 type UserForm = Required<
@@ -17,10 +19,15 @@ type UserForm = Required<
   >
 >
 
+// 标记数据是否正在加载。
 const loading = ref(false)
+// 标记表单是否正在提交。
 const submitting = ref(false)
+// 配置图片上传接口地址。
 const uploadUrl = 'https://a9lhd8buo8.sealoshzh.site/upload/images'
+// 引用表单实例，用于校验和重置。
 const formRef = ref<FormInstance>()
+// 保存表单编辑数据。
 const form = reactive<UserForm>({
   role: 'CUSTOMER',
   mobile: '',
@@ -32,6 +39,7 @@ const form = reactive<UserForm>({
   tags: [],
   status: true,
 })
+// 定义表单字段校验规则。
 const rules: FormRules<UserForm> = {
   mobile: [
     { required: true, message: '请输入手机号码', trigger: 'blur' },
@@ -40,31 +48,39 @@ const rules: FormRules<UserForm> = {
   role: [{ required: true, message: '请选择用户角色', trigger: 'change' }],
 }
 
+// 通知父组件关闭当前弹窗。
 const close = () => emit('update:modelValue', false)
+// 将异常转换为可展示的错误消息。
 const messageOf = (error: unknown) =>
   error instanceof Error ? error.message : '操作失败，请稍后重试'
 
+// 处理图片上传前的检查。
 const beforeUpload: UploadProps['beforeUpload'] = (file) => {
   if (file.type.startsWith('image/')) return true
   ElMessage.warning('只能上传图片文件')
   return false
 }
 
+// 保存上传成功后的头像地址。
 const handleAvatarSuccess: UploadProps['onSuccess'] = (response) => {
   if (typeof response !== 'string') return ElMessage.error('上传接口未返回图片地址')
   form.avatar = response
   ElMessage.success('头像上传成功')
 }
 
+// 提示头像上传失败。
 const handleAvatarError: UploadProps['onError'] = () => ElMessage.error('头像上传失败')
+// 清空当前头像。
 const removeAvatar = () => {
   form.avatar = ''
 }
 
+// 加载当前编辑记录的详情。
 const loadDetail = async () => {
   if (!props.userId) return
   loading.value = true
   try {
+    // 获取接口返回的业务数据。
     const { data } = await userApi.detail(props.userId)
     Object.assign(form, {
       role: data.role,
@@ -87,6 +103,7 @@ const loadDetail = async () => {
   }
 }
 
+// 弹窗打开或编辑对象变更时初始化表单。
 watch(
   () => [props.modelValue, props.userId] as const,
   ([visible]) => {
@@ -94,6 +111,7 @@ watch(
   },
 )
 
+// 校验表单并提交保存。
 const submit = async () => {
   if (!props.userId || !(await formRef.value?.validate().catch(() => false))) return
   submitting.value = true

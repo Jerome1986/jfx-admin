@@ -6,12 +6,19 @@ import type { FormInstance, FormRules, UploadProps } from 'element-plus'
 import { constructionServiceApi } from '@/api/constructionServices'
 import type { ConstructionServiceInput } from '@/types/constructionService'
 
+// 接收父组件传入的属性。
 const props = defineProps<{ modelValue: boolean; serviceId?: number }>()
+// 定义组件向父组件发送的事件。
 const emit = defineEmits<{ 'update:modelValue': [value: boolean]; saved: [] }>()
+// 配置图片上传接口地址。
 const uploadUrl = 'https://a9lhd8buo8.sealoshzh.site/upload/images'
+// 引用表单实例，用于校验和重置。
 const formRef = ref<FormInstance>()
+// 标记数据是否正在加载。
 const loading = ref(false)
+// 标记表单是否正在提交。
 const submitting = ref(false)
+// 保存表单编辑数据。
 const form = reactive<ConstructionServiceInput>({
   name: '',
   description: '',
@@ -21,6 +28,7 @@ const form = reactive<ConstructionServiceInput>({
   isEnabled: true,
   sort: 0,
 })
+// 定义表单字段校验规则。
 const rules: FormRules<ConstructionServiceInput> = {
   name: [{ required: true, message: '请输入服务名称', trigger: 'blur' }],
   unit: [{ required: true, message: '请输入计价单位', trigger: 'blur' }],
@@ -50,6 +58,7 @@ const loadDetail = async () => {
   if (!props.serviceId) return
   loading.value = true
   try {
+    // 获取接口返回的业务数据。
     const { data } = await constructionServiceApi.detail(props.serviceId)
     Object.assign(form, {
       name: data.name,
@@ -95,6 +104,7 @@ const imageUploadSuccess: UploadProps['onSuccess'] = (response) => {
 const submit = async () => {
   if (!(await formRef.value?.validate().catch(() => false))) return
   submitting.value = true
+  // 组装接口提交数据。
   const payload: ConstructionServiceInput = {
     name: form.name.trim(),
     description: form.description?.trim() || undefined,

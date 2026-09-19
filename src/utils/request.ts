@@ -61,7 +61,7 @@ instance.interceptors.request.use(
     // 获取当前管理员令牌以注入请求头。
     const userStore = useUserStore()
     if (userStore.token) {
-      config.headers.set('Authorization', userStore.token)
+      config.headers.set('Authorization', 'Bearer ' + userStore.token)
     }
     return config
   },

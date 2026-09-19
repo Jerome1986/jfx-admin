@@ -13,12 +13,14 @@ import {
 import type { ProductInput } from '@/types/product'
 import type { ProductCategory } from '@/types/productCategory'
 
+// 接收父组件传入的属性。
 const props = defineProps<{
   modelValue: boolean
   productId?: number
   categories: ProductCategory[]
 }>()
 
+// 定义组件向父组件发送的事件。
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   saved: []
@@ -27,10 +29,15 @@ const emit = defineEmits<{
 // 表单使用完整分类路径，保存时只提交路径中的末级分类编号。
 type ProductForm = Omit<ProductInput, 'categoryId'> & { categoryPath: number[] }
 
+// 配置图片上传接口地址。
 const uploadUrl = 'https://a9lhd8buo8.sealoshzh.site/upload/images'
+// 标记数据是否正在加载。
 const loading = ref(false)
+// 标记表单是否正在提交。
 const submitting = ref(false)
+// 引用表单实例，用于校验和重置。
 const formRef = ref<FormInstance>()
+// 保存表单编辑数据。
 const form = reactive<ProductForm>({
   categoryPath: [],
   name: '',
@@ -47,8 +54,10 @@ const form = reactive<ProductForm>({
   sort: 0,
 })
 
+// 将分类转换为级联选择器选项。
 const categoryOptions = computed(() => toCategoryCascaderOptions(props.categories))
 
+// 定义表单字段校验规则。
 const rules: FormRules<ProductForm> = {
   categoryPath: [{ required: true, message: '请选择末级商品分类', trigger: 'change' }],
   name: [{ required: true, message: '请输入商品名称', trigger: 'blur' }],
@@ -56,6 +65,7 @@ const rules: FormRules<ProductForm> = {
   mainImage: [{ required: true, message: '请上传商品主图', trigger: 'change' }],
 }
 
+// 将异常转换为可展示的错误消息。
 const messageOf = (error: unknown) =>
   error instanceof Error ? error.message : '操作失败，请稍后重试'
 
@@ -84,6 +94,7 @@ const loadDetail = async () => {
   if (!props.productId) return
   loading.value = true
   try {
+    // 获取接口返回的业务数据。
     const { data } = await productApi.detail(props.productId)
     Object.assign(form, {
       categoryPath: findCategoryPath(props.categories, data.categoryId) ?? [],
@@ -123,6 +134,7 @@ const submit = async () => {
   if (!(await formRef.value?.validate().catch(() => false))) return
   submitting.value = true
   try {
+    // 组装接口提交数据。
     const payload: ProductInput = {
       categoryId: lastCategoryId(form.categoryPath)!,
       name: form.name.trim(),
@@ -150,18 +162,21 @@ const submit = async () => {
   }
 }
 
+// 处理图片上传前的检查。
 const beforeUpload: UploadProps['beforeUpload'] = (file) => {
   if (file.type.startsWith('image/')) return true
   ElMessage.warning('只能上传图片文件')
   return false
 }
 
+// 保存上传成功后的商品主图。
 const mainImageSuccess: UploadProps['onSuccess'] = (response) => {
   if (typeof response !== 'string') return ElMessage.error('上传接口未返回图片地址')
   form.mainImage = response
   formRef.value?.validateField('mainImage').catch(() => undefined)
 }
 
+// 追加上传成功后的商品详情图。
 const detailImageSuccess: UploadProps['onSuccess'] = (response) => {
   if (typeof response !== 'string') return ElMessage.error('上传接口未返回图片地址')
   form.detailImages = [...(form.detailImages ?? []), response]

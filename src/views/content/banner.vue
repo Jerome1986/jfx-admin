@@ -6,14 +6,23 @@ import type { FormInstance, FormRules, UploadProps } from 'element-plus'
 import { bannerApi } from '@/api/banner'
 import type { Banner, BannerInput } from '@/types/banner'
 
+// 标记数据是否正在加载。
 const loading = ref(false)
+// 标记表单是否正在提交。
 const submitting = ref(false)
+// 控制编辑弹窗的显示状态。
 const dialogVisible = ref(false)
+// 引用表单实例，用于校验和重置。
 const formRef = ref<FormInstance>()
+// 保存列表展示数据。
 const rows = ref<Banner[]>([])
+// 保存当前编辑记录的 ID。
 const editingId = ref<number>()
+// 配置图片上传接口地址。
 const uploadUrl = 'https://a9lhd8buo8.sealoshzh.site/upload/images'
+// 保存列表筛选条件。
 const query = reactive({ title: '', status: '' })
+// 保存表单编辑数据。
 const form = reactive<BannerInput>({
   title: '',
   image: '',
@@ -21,6 +30,7 @@ const form = reactive<BannerInput>({
   status: 'PUBLISHED',
 })
 
+// 计算符合筛选条件的列表数据。
 const filteredRows = computed(() =>
   rows.value.filter(
     (item) =>
@@ -29,14 +39,17 @@ const filteredRows = computed(() =>
   ),
 )
 
+// 定义表单字段校验规则。
 const rules: FormRules<BannerInput> = {
   title: [{ required: true, message: '请输入轮播图标题', trigger: 'blur' }],
   image: [{ required: true, message: '请上传轮播图片', trigger: 'change' }],
 }
 
+// 加载轮播图列表。
 const loadBanners = async () => {
   loading.value = true
   try {
+    // 获取接口返回的业务数据。
     const { data } = await bannerApi.list()
     rows.value = Array.isArray(data) ? data : data.list
   } finally {
@@ -44,6 +57,7 @@ const loadBanners = async () => {
   }
 }
 
+// 将表单恢复为初始数据。
 const resetForm = () => {
   editingId.value = undefined
   Object.assign(form, {
@@ -54,6 +68,7 @@ const resetForm = () => {
   })
 }
 
+// 保存上传成功后的图片地址。
 const handleUploadSuccess: UploadProps['onSuccess'] = (response) => {
   if (typeof response !== 'string') return ElMessage.error('上传接口未返回图片地址')
   form.image = response
@@ -61,24 +76,29 @@ const handleUploadSuccess: UploadProps['onSuccess'] = (response) => {
   ElMessage.success('图片上传成功')
 }
 
+// 提示图片上传失败。
 const handleUploadError: UploadProps['onError'] = () => ElMessage.error('图片上传失败')
 
+// 处理图片上传前的检查。
 const beforeUpload: UploadProps['beforeUpload'] = (file) => {
   if (file.type.startsWith('image/')) return true
   ElMessage.warning('只能上传图片文件')
   return false
 }
 
+// 清空已上传的图片。
 const removeImage = () => {
   form.image = ''
   formRef.value?.validateField('image').catch(() => undefined)
 }
 
+// 初始化并打开新增弹窗。
 const openCreate = () => {
   resetForm()
   dialogVisible.value = true
 }
 
+// 设置编辑记录并打开编辑弹窗。
 const openEdit = (row: Banner) => {
   editingId.value = row.id
   Object.assign(form, {
@@ -90,10 +110,12 @@ const openEdit = (row: Banner) => {
   dialogVisible.value = true
 }
 
+// 校验表单并提交保存。
 const submit = async () => {
   if (!(await formRef.value?.validate().catch(() => false))) return
   submitting.value = true
   try {
+    // 组装接口提交数据。
     const payload: BannerInput = {
       title: form.title,
       image: form.image,
@@ -110,6 +132,7 @@ const submit = async () => {
   }
 }
 
+// 确认后删除当前记录并刷新列表。
 const remove = async (row: Banner) => {
   try {
     await ElMessageBox.confirm(`确定删除“${row.title}”吗？`, '删除轮播图', {
@@ -125,9 +148,11 @@ const remove = async (row: Banner) => {
   }
 }
 
+// 获取状态对应的显示文本。
 const statusText = (status: string) =>
   ({ DRAFT: '草稿', PUBLISHED: '已发布', OFFLINE: '已下架' })[status] || status
 
+// 页面挂载后加载初始数据。
 onMounted(loadBanners)
 </script>
 

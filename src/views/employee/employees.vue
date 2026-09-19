@@ -5,12 +5,19 @@ import { employeeApi } from '@/api/employees'
 import EmployeeEditorDialog from './EmployeeEditorDialog.vue'
 import type { Employee, EmployeeListParams } from '@/types/employee'
 
+// 标记数据是否正在加载。
 const loading = ref(false)
+// 保存列表展示数据。
 const rows = ref<Employee[]>([])
+// 保存列表记录总数。
 const total = ref(0)
+// 控制编辑弹窗的显示状态。
 const dialogVisible = ref(false)
+// 保存当前编辑记录的 ID。
 const editingId = ref<number>()
+// 保存列表筛选条件。
 const query = reactive({ keyword: '', department: '', status: '' as '' | boolean })
+// 保存当前页码和每页条数。
 const pagination = reactive({ pageNum: 1, pageSize: 10 })
 
 // 将未知异常转换为可展示的错误消息。
@@ -26,6 +33,7 @@ const formatDate = (value?: string | null) =>
 const loadData = async () => {
   loading.value = true
   try {
+    // 组装列表查询和分页参数。
     const params: EmployeeListParams = {
       pageNum: pagination.pageNum,
       pageSize: pagination.pageSize,
@@ -33,6 +41,7 @@ const loadData = async () => {
     if (query.keyword.trim()) params.keyword = query.keyword.trim()
     if (query.department.trim()) params.department = query.department.trim()
     if (query.status !== '') params.status = query.status
+    // 获取接口返回的业务数据。
     const { data } = await employeeApi.list(params)
     rows.value = data.list
     total.value = data.total
@@ -81,6 +90,7 @@ const remove = async (row: Employee) => {
     ElMessage.error(messageOf(error))
   }
 }
+// 页面挂载后加载初始数据。
 onMounted(loadData)
 </script>
 
@@ -135,6 +145,9 @@ onMounted(loadData)
                 </div>
               </div>
             </template></el-table-column
+          >
+          <el-table-column label="姓名" min-width="120"
+            ><template #default="{ row }">{{ row.user?.realName || '—' }}</template></el-table-column
           >
           <el-table-column label="手机号" width="130"
             ><template #default="{ row }">{{ row.user?.mobile || '—' }}</template></el-table-column

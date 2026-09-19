@@ -82,6 +82,7 @@ const messageOf = (error: unknown) =>
 
 // 从分类仓储加载全部案例分类。
 const loadCategories = async () => {
+  // 获取接口返回的业务数据。
   const { data } = await caseCategoryApi.list()
   categories.value = data
 }
@@ -156,6 +157,7 @@ const updateRecommended = async (row: CaseListItem, value: boolean) => {
 // 加载并打开指定案例的详情抽屉。
 const showDetail = async (row: CaseListItem) => {
   try {
+    // 获取接口返回的业务数据。
     const { data } = await caseApi.detail(row.id)
     detail.value = data
     detailVisible.value = true
@@ -262,6 +264,7 @@ const removeCategory = async (category: CaseCategory) => {
   }
 }
 
+// 页面挂载后加载初始数据。
 onMounted(async () => {
   try {
     await loadCategories()

@@ -6,34 +6,49 @@ import type { FormInstance, FormRules } from 'element-plus'
 import { productCategoryApi } from '@/api/productCategories'
 import type { ProductCategory, ProductCategoryInput } from '@/types/productCategory'
 
+// 标记数据是否正在加载。
 const loading = ref(false)
+// 标记表单是否正在提交。
 const submitting = ref(false)
+// 控制编辑弹窗的显示状态。
 const dialogVisible = ref(false)
+// 保存列表展示数据。
 const rows = ref<ProductCategory[]>([])
+// 保存当前编辑记录的 ID。
 const editingId = ref<number>()
+// 引用表单实例，用于校验和重置。
 const formRef = ref<FormInstance>()
+// 保存列表筛选条件。
 const query = reactive({ keyword: '', status: '' as '' | boolean })
+// 保存已应用到列表的筛选条件。
 const appliedQuery = reactive({ keyword: '', status: '' as '' | boolean })
+// 保存表单编辑数据。
 const form = reactive<ProductCategoryInput>({
   name: '',
   sort: 0,
   isEnabled: true,
 })
 
+// 过滤当前分类，生成可选的父级分类。
 const parentOptions = computed(() => rows.value.filter((item) => item.id !== editingId.value))
+// 计算符合筛选条件的列表数据。
 const filteredRows = computed(() => {
+  // 整理用于搜索匹配的关键字。
   const keyword = appliedQuery.keyword.trim().toLowerCase()
+  // 判断分类是否符合当前筛选条件。
   const matches = (item: ProductCategory) =>
     (!keyword || item.name.toLowerCase().includes(keyword)) &&
     (appliedQuery.status === '' || item.isEnabled === appliedQuery.status)
 
   return rows.value.reduce<ProductCategory[]>((result, item) => {
+    // 保存符合筛选条件的子分类。
     const children = (item.children ?? []).filter(matches)
     if (matches(item) || children.length) result.push({ ...item, children })
     return result
   }, [])
 })
 
+// 定义表单字段校验规则。
 const rules: FormRules<ProductCategoryInput> = {
   name: [
     { required: true, message: '请输入分类名称', trigger: 'blur' },
@@ -42,12 +57,15 @@ const rules: FormRules<ProductCategoryInput> = {
   sort: [{ required: true, message: '请输入排序值', trigger: 'change' }],
 }
 
+// 将异常转换为可展示的错误消息。
 const messageOf = (error: unknown) =>
   error instanceof Error ? error.message : '操作失败，请稍后重试'
 
+// 加载分类列表。
 const loadCategories = async () => {
   loading.value = true
   try {
+    // 获取接口返回的业务数据。
     const { data } = await productCategoryApi.list()
     rows.value = data
   } catch (error) {
@@ -57,6 +75,7 @@ const loadCategories = async () => {
   }
 }
 
+// 将表单恢复为初始数据。
 const resetForm = (parentId?: number) => {
   editingId.value = undefined
   Object.assign(form, {
@@ -67,13 +86,16 @@ const resetForm = (parentId?: number) => {
   })
 }
 
+// 初始化并打开新增弹窗。
 const openCreate = (parentId?: number) => {
   resetForm(parentId)
   dialogVisible.value = true
 }
 
+// 设置编辑记录并打开编辑弹窗。
 const openEdit = async (row: ProductCategory) => {
   try {
+    // 获取接口返回的业务数据。
     const { data } = await productCategoryApi.detail(row.id)
     editingId.value = data.id
     Object.assign(form, {
@@ -88,10 +110,12 @@ const openEdit = async (row: ProductCategory) => {
   }
 }
 
+// 校验表单并提交保存。
 const submit = async () => {
   if (!(await formRef.value?.validate().catch(() => false))) return
   submitting.value = true
   try {
+    // 组装接口提交数据。
     const payload: ProductCategoryInput = {
       ...(form.parentId ? { parentId: form.parentId } : {}),
       name: form.name,
@@ -110,6 +134,7 @@ const submit = async () => {
   }
 }
 
+// 更新当前记录的启用状态。
 const setStatus = async (row: ProductCategory, isEnabled: boolean) => {
   try {
     await productCategoryApi.setStatus(row.id, isEnabled)
@@ -121,6 +146,7 @@ const setStatus = async (row: ProductCategory, isEnabled: boolean) => {
   }
 }
 
+// 确认后删除当前记录并刷新列表。
 const remove = async (row: ProductCategory) => {
   try {
     await ElMessageBox.confirm(`删除“${row.name}”后无法恢复，确定继续吗？`, '删除商品分类', {
@@ -137,13 +163,16 @@ const remove = async (row: ProductCategory) => {
   }
 }
 
+// 应用当前筛选条件查询列表。
 const search = () => Object.assign(appliedQuery, query)
 
+// 清空筛选条件并更新列表。
 const resetQuery = () => {
   Object.assign(query, { keyword: '', status: '' })
   search()
 }
 
+// 页面挂载后加载初始数据。
 onMounted(loadCategories)
 </script>
 

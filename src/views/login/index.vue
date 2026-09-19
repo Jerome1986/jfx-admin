@@ -9,25 +9,35 @@ import compactLogo from '@/assets/logo/logo.png'
 import fullLogo from '@/assets/logo/logo2.png'
 import { useUserStore } from '@/stores'
 
+// 获取路由实例，用于登录后跳转。
 const router = useRouter()
+// 获取用户状态仓库，用于保存登录信息。
 const userStore = useUserStore()
+// 标记数据是否正在加载。
 const loading = ref(false)
+// 控制密码是否明文显示。
 const showPassword = ref(false)
+// 保存是否记住登录状态的选择。
 const rememberMe = ref(true)
+// 保存表单编辑数据。
 const form = reactive({ username: '', password: '' })
+// 保存登录字段的校验提示。
 const errors = reactive({ username: '', password: '' })
 
+// 校验登录表单并更新错误提示。
 function validate() {
   errors.username = form.username.trim() ? '' : '请输入账号'
   errors.password = form.password ? '' : '请输入密码'
   return !errors.username && !errors.password
 }
 
+// 提交登录信息并在成功后跳转。
 async function handleLogin() {
   if (!validate()) return
 
   loading.value = true
   try {
+    // 获取接口返回的业务数据。
     const { data } = await adminLogin(form.username.trim(), form.password)
     userStore.setToken(data.token)
     userStore.setUserInfo(data.userInfo)

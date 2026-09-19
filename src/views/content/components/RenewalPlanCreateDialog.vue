@@ -11,7 +11,9 @@ import type { Product } from '@/types/product'
 import type { RenewalPlan, RenewalPlanInput, RenewalPlanItemInput } from '@/types/renewalPlan'
 import { calculateRenewalPlanPrice } from '@/utils/renewalPlan'
 
+// 接收父组件传入的属性。
 const props = defineProps<{ modelValue: boolean; planId?: number }>()
+// 定义组件向父组件发送的事件。
 const emit = defineEmits<{ 'update:modelValue': [value: boolean]; saved: [] }>()
 
 type PlanItemInput = RenewalPlanItemInput & { constructionServiceId?: number }
@@ -19,27 +21,42 @@ type PlanForm = Omit<RenewalPlanInput, 'tags' | 'startingPrice' | 'items'> & {
   tagsText: string
   items: PlanItemInput[]
 }
+// 配置图片上传接口地址。
 const uploadUrl = 'https://a9lhd8buo8.sealoshzh.site/upload/images'
+// 引用表单实例，用于校验和重置。
 const formRef = ref<FormInstance>()
+// 标记表单是否正在提交。
 const submitting = ref(false)
+// 标记详情是否正在加载。
 const detailLoading = ref(false)
+// 标记商品列表是否正在加载。
 const productLoading = ref(false)
+// 控制商品选择弹窗的显示状态。
 const productDialogVisible = ref(false)
+// 控制服务选择弹窗的显示状态。
 const serviceDialogVisible = ref(false)
+// 保存当前操作的方案项目索引。
 const activeItemIndex = ref<number>()
+// 保存可选择的商品列表。
 const products = ref<Product[]>([])
+// 保存可选择的服务列表。
 const services = ref<ConstructionService[]>([])
+// 保存当前选中的商品。
 const selectedProducts = ref<Product[]>([])
+// 保存当前选中的服务。
 const selectedServices = ref<ConstructionService[]>([])
+// 引用商品表格实例，用于同步勾选状态。
 const productTableRef = ref<{
   clearSelection: () => void
   toggleRowSelection: (row: Product, selected: boolean) => void
 }>()
+// 引用服务表格实例，用于同步勾选状态。
 const serviceTableRef = ref<{
   clearSelection: () => void
   toggleRowSelection: (row: ConstructionService, selected: boolean) => void
 }>()
 
+// 创建一条默认方案项目。
 const newItem = (): PlanItemInput => ({
   category: '',
   name: '',
@@ -50,6 +67,7 @@ const newItem = (): PlanItemInput => ({
   sort: 0,
 })
 
+// 创建表单的初始数据。
 const initialForm = (): PlanForm => ({
   name: '',
   summary: '',
@@ -65,8 +83,11 @@ const initialForm = (): PlanForm => ({
   items: [newItem()],
 })
 
+// 保存表单编辑数据。
 const form = reactive<PlanForm>(initialForm())
+// 根据方案项目计算起始价格。
 const startingPrice = computed(() => calculateRenewalPlanPrice(form.items))
+// 定义表单字段校验规则。
 const rules: FormRules = {
   name: [{ required: true, message: '请输入方案名称', trigger: 'blur' }],
   summary: [{ required: true, message: '请输入方案简介', trigger: 'blur' }],
@@ -74,22 +95,28 @@ const rules: FormRules = {
   detail: [{ required: true, message: '请输入方案详情', trigger: 'blur' }],
 }
 
+// 从上传响应中获取图片地址。
 const uploadedUrl = (response: unknown) => (typeof response === 'string' ? response : '')
+// 处理上传成功并回填图片地址。
 const uploadSuccess =
   (field: 'cover' | 'shareImage'): UploadProps['onSuccess'] =>
   (response) => {
+    // 保存上传结果中的图片地址。
     const url = uploadedUrl(response)
     if (!url) return ElMessage.error('上传接口未返回图片地址')
     form[field] = url
     formRef.value?.validateField(field).catch(() => undefined)
   }
+// 处理图片上传前的检查。
 const beforeUpload: UploadProps['beforeUpload'] = (file) => {
   if (file.type.startsWith('image/')) return true
   ElMessage.warning('只能上传图片文件')
   return false
 }
+// 提示图片上传失败。
 const uploadError: UploadProps['onError'] = () => ElMessage.error('图片上传失败')
 
+// 重置表单和相关选择状态。
 const reset = () => {
   Object.assign(form, initialForm())
   activeItemIndex.value = undefined
@@ -98,6 +125,7 @@ const reset = () => {
   formRef.value?.clearValidate()
 }
 
+// 将详情数据填入编辑表单。
 const fillForm = (plan: RenewalPlan) => {
   Object.assign(form, {
     name: plan.name,
@@ -125,6 +153,7 @@ const fillForm = (plan: RenewalPlan) => {
   })
 }
 
+// 查找方案项目关联的商品。
 const linkedProduct = (item: RenewalPlanItemInput) =>
   products.value.find((product) => product.id === item.productId)
 
@@ -132,9 +161,11 @@ const linkedProduct = (item: RenewalPlanItemInput) =>
 const linkedService = (item: PlanItemInput) =>
   services.value.find((service) => service.id === item.constructionServiceId)
 
+// 加载可供选择的商品列表。
 const loadProducts = async () => {
   productLoading.value = true
   try {
+    // 获取接口返回的业务数据。
     const { data } = await productApi.list()
     products.value = data.filter((product) => product.isPublished)
   } finally {
@@ -146,6 +177,7 @@ const loadProducts = async () => {
 const loadServices = async () => {
   productLoading.value = true
   try {
+    // 获取接口返回的业务数据。
     const { data } = await constructionServiceApi.list({ pageNum: 1, pageSize: 100 })
     services.value = data.list.filter((service) => service.isEnabled)
   } finally {
@@ -153,7 +185,9 @@ const loadServices = async () => {
   }
 }
 
+// 打开商品选择弹窗并同步已选商品。
 const openProductDialog = async (index: number) => {
+  // 保存当前操作的方案项目。
   const item = form.items[index]
   if (!item?.category.trim()) return ElMessage.warning('请先填写项目分类')
   activeItemIndex.value = index
@@ -162,6 +196,7 @@ const openProductDialog = async (index: number) => {
   await loadProducts()
   void nextTick(() => {
     productTableRef.value?.clearSelection()
+    // 查找当前项目已关联的选项。
     const current = products.value.find((product) => product.id === item.productId)
     if (current) productTableRef.value?.toggleRowSelection(current, true)
   })
@@ -169,6 +204,7 @@ const openProductDialog = async (index: number) => {
 
 // 打开商品服务选择弹窗并记录当前方案项目。
 const openServiceDialog = async (index: number) => {
+  // 保存当前操作的方案项目。
   const item = form.items[index]
   if (!item?.category.trim()) return ElMessage.warning('请先填写项目分类')
   activeItemIndex.value = index
@@ -177,17 +213,22 @@ const openServiceDialog = async (index: number) => {
   await loadServices()
   void nextTick(() => {
     serviceTableRef.value?.clearSelection()
+    // 查找当前项目已关联的选项。
     const current = services.value.find((service) => service.id === item.constructionServiceId)
     if (current) serviceTableRef.value?.toggleRowSelection(current, true)
   })
 }
 
+// 将选中的商品写入方案项目。
 const confirmProducts = () => {
   if (activeItemIndex.value === undefined || !selectedProducts.value.length)
     return ElMessage.warning('请至少选择一个商品或服务')
+  // 获取当前正在配置的方案项目。
   const planItem = form.items[activeItemIndex.value]
   if (!planItem) return
+  // 保存去除首尾空格后的项目分类。
   const category = planItem.category.trim()
+  // 将选中条目转换为方案项目数据。
   const makeItem = (product: Product, offset: number): RenewalPlanItemInput => ({
     productId: product.id,
     category,
@@ -199,6 +240,7 @@ const confirmProducts = () => {
     image: product.mainImage,
     sort: planItem.sort + offset,
   })
+  // 拆分首个选择项和其余选择项，分别填充方案项目。
   const [first, ...rest] = selectedProducts.value
   if (!first) return
   delete planItem.constructionServiceId
@@ -216,9 +258,12 @@ const confirmProducts = () => {
 const confirmService = () => {
   if (activeItemIndex.value === undefined || !selectedServices.value.length)
     return ElMessage.warning('请至少选择一个商品服务')
+  // 获取当前正在配置的方案项目。
   const planItem = form.items[activeItemIndex.value]
   if (!planItem) return
+  // 保存去除首尾空格后的项目分类。
   const category = planItem.category.trim()
+  // 将选中条目转换为方案项目数据。
   const makeItem = (service: ConstructionService, offset: number): PlanItemInput => ({
     constructionServiceId: service.id,
     category,
@@ -230,6 +275,7 @@ const confirmService = () => {
     image: service.image || undefined,
     sort: planItem.sort + offset,
   })
+  // 拆分首个选择项和其余选择项，分别填充方案项目。
   const [first, ...rest] = selectedServices.value
   if (!first) return
   Object.assign(planItem, makeItem(first, 0))
@@ -248,11 +294,13 @@ const serviceSelectable = (service: ConstructionService) =>
     (item, index) => index !== activeItemIndex.value && item.constructionServiceId === service.id,
   )
 
+// 判断商品是否可被当前项目选择。
 const productSelectable = (product: Product) =>
   !form.items.some(
     (item, index) => index !== activeItemIndex.value && item.productId === product.id,
   )
 
+// 解除方案项目的商品关联。
 const unlinkProduct = (item: RenewalPlanItemInput) => {
   delete item.productId
 }
@@ -263,11 +311,13 @@ const unlinkService = (item: PlanItemInput) => {
   delete item.image
 }
 
+// 校验表单并提交保存。
 const submit = async () => {
   if (!(await formRef.value?.validate().catch(() => false))) return
   if (!form.items.every((item) => item.category && item.name && item.unit)) {
     return ElMessage.warning('请完整填写项目的分类、名称和单位')
   }
+  // 组装接口提交数据。
   const payload: RenewalPlanInput = {
     name: form.name.trim(),
     summary: form.summary.trim(),
@@ -309,6 +359,7 @@ const submit = async () => {
   }
 }
 
+// 弹窗打开或编辑对象变更时初始化表单。
 watch(
   () => props.modelValue,
   async (visible) => {
@@ -317,6 +368,7 @@ watch(
     if (!props.planId) return
     detailLoading.value = true
     try {
+      // 获取接口返回的业务数据。
       const { data } = await renewalPlanApi.detail(props.planId)
       fillForm(data)
     } finally {

@@ -6,13 +6,21 @@ import { employeeApi } from '@/api/employees'
 import { userApi } from '@/api/users'
 import type { CustomerUser } from '@/types/customerUser'
 
+// 接收父组件传入的属性。
 const props = defineProps<{ modelValue: boolean; employeeId?: number }>()
+// 定义组件向父组件发送的事件。
 const emit = defineEmits<{ 'update:modelValue': [value: boolean]; saved: [] }>()
+// 引用表单实例，用于校验和重置。
 const formRef = ref<FormInstance>()
+// 标记数据是否正在加载。
 const loading = ref(false)
+// 标记表单是否正在提交。
 const submitting = ref(false)
+// 标记用户选项是否正在加载。
 const userLoading = ref(false)
+// 保存可关联的用户选项。
 const userOptions = ref<CustomerUser[]>([])
+// 保存表单编辑数据。
 const form = reactive({
   createMode: 'existing' as 'existing' | 'new',
   mobile: '',
@@ -24,6 +32,7 @@ const form = reactive({
   hiredAt: '',
   status: true,
 })
+// 定义表单字段校验规则。
 const rules: FormRules = {
   mobile: [
     {
@@ -73,6 +82,7 @@ const searchUsers = async (keyword: string) => {
   if (!keyword.trim()) return
   userLoading.value = true
   try {
+    // 获取接口返回的业务数据。
     const { data } = await userApi.list({
       pageNum: 1,
       pageSize: 20,
@@ -92,6 +102,7 @@ const loadDetail = async () => {
   if (!props.employeeId) return
   loading.value = true
   try {
+    // 获取接口返回的业务数据。
     const { data } = await employeeApi.detail(props.employeeId)
     Object.assign(form, {
       position: data.position ?? '',
@@ -122,6 +133,7 @@ watch(
 const submit = async () => {
   if (!(await formRef.value?.validate().catch(() => false))) return
   submitting.value = true
+  // 整理新增和编辑共用的员工字段。
   const common = {
     position: form.position.trim() || undefined,
     department: form.department.trim() || undefined,

@@ -8,16 +8,26 @@ import { calculateRenewalPlanPrice } from '@/utils/renewalPlan'
 import RenewalPlanCreateDialog from './components/RenewalPlanCreateDialog.vue'
 import RenewalPlanDetailDrawer from './components/RenewalPlanDetailDrawer.vue'
 
+// 标记数据是否正在加载。
 const loading = ref(false)
+// 控制编辑弹窗的显示状态。
 const dialogVisible = ref(false)
+// 控制详情抽屉的显示状态。
 const detailVisible = ref(false)
+// 保存当前编辑记录的 ID。
 const editingId = ref<number>()
+// 保存当前查看详情的记录 ID。
 const detailId = ref<number>()
+// 保存列表展示数据。
 const rows = ref<RenewalPlan[]>([])
+// 保存列表筛选条件。
 const query = reactive({ name: '', status: '' as RenewalPlanStatus | '' })
+// 保存已应用到列表的筛选条件。
 const appliedQuery = reactive({ ...query })
 
+// 计算符合筛选条件的列表数据。
 const filteredRows = computed(() => {
+  // 整理用于匹配的名称关键字。
   const name = appliedQuery.name.trim().toLowerCase()
   return rows.value.filter(
     (item) =>
@@ -26,12 +36,15 @@ const filteredRows = computed(() => {
   )
 })
 
+// 将异常转换为可展示的错误消息。
 const messageOf = (error: unknown) =>
   error instanceof Error ? error.message : '操作失败，请稍后重试'
 
+// 加载列表数据并更新页面状态。
 const loadData = async () => {
   loading.value = true
   try {
+    // 获取接口返回的业务数据。
     const { data } = await renewalPlanApi.list()
     rows.value = data
   } catch (error) {
@@ -41,23 +54,29 @@ const loadData = async () => {
   }
 }
 
+// 应用当前筛选条件查询列表。
 const search = () => Object.assign(appliedQuery, query)
+// 清空筛选条件并更新列表。
 const resetQuery = () => {
   Object.assign(query, { name: '', status: '' })
   search()
 }
+// 初始化并打开新增弹窗。
 const openCreate = () => {
   editingId.value = undefined
   dialogVisible.value = true
 }
+// 设置编辑记录并打开编辑弹窗。
 const openEdit = (row: RenewalPlan) => {
   editingId.value = row.id
   dialogVisible.value = true
 }
+// 加载并展示当前记录的详情。
 const openDetail = (row: RenewalPlan) => {
   detailId.value = row.id
   detailVisible.value = true
 }
+// 确认后删除当前记录并刷新列表。
 const remove = async (row: RenewalPlan) => {
   try {
     await ElMessageBox.confirm(`删除“${row.name}”后无法恢复，确定继续吗？`, '删除焕新方案', {
@@ -73,16 +92,21 @@ const remove = async (row: RenewalPlan) => {
     ElMessage.error(messageOf(error))
   }
 }
+// 提供状态对应的中文名称。
 const statusLabel: Record<RenewalPlanStatus, string> = {
   DRAFT: '草稿',
   PUBLISHED: '已发布',
   OFFLINE: '已下架',
 }
+// 获取状态对应的中文名称。
 const getStatusLabel = (status: RenewalPlanStatus) => statusLabel[status]
+// 获取状态对应的标签样式。
 const statusType = (status: RenewalPlanStatus) =>
   status === 'PUBLISHED' ? 'success' : status === 'OFFLINE' ? 'info' : 'warning'
+// 将日期转换为页面显示文本。
 const formatDate = (value: string) => (value ? new Date(value).toLocaleString('zh-CN') : '—')
 
+// 页面挂载后加载初始数据。
 onMounted(loadData)
 </script>
 

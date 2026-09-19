@@ -5,16 +5,26 @@ import { addressApi } from '@/api/addresses'
 import AddressEditorDialog from './AddressEditorDialog.vue'
 import type { ServiceAddress } from '@/types/address'
 
+// 标记数据是否正在加载。
 const loading = ref(false)
+// 保存接口返回的完整地址列表。
 const allRows = ref<ServiceAddress[]>([])
+// 控制编辑弹窗的显示状态。
 const dialogVisible = ref(false)
+// 保存当前编辑记录的 ID。
 const editingId = ref<number>()
+// 保存当前编辑的地址记录。
 const editingAddress = ref<ServiceAddress>()
+// 保存列表筛选条件。
 const query = reactive({ keyword: '', city: '', status: '' as '' | boolean })
+// 保存当前页码和每页条数。
 const pagination = reactive({ pageNum: 1, pageSize: 10 })
+// 计算符合筛选条件的列表数据。
 const filteredRows = computed(() => {
+  // 整理用于搜索匹配的关键字。
   const keyword = query.keyword.trim().toLowerCase()
   return allRows.value.filter((row) => {
+    // 判断当前记录是否匹配关键字。
     const matchesKeyword =
       !keyword ||
       [row.contactName, row.phone, row.locationName, row.address, row.doorplate]
@@ -27,17 +37,23 @@ const filteredRows = computed(() => {
     )
   })
 })
+// 保存列表展示数据。
 const rows = computed(() => {
+  // 计算当前页数据的起始索引。
   const start = (pagination.pageNum - 1) * pagination.pageSize
   return filteredRows.value.slice(start, start + pagination.pageSize)
 })
+// 将异常转换为可展示的错误消息。
 const messageOf = (error: unknown) =>
   error instanceof Error ? error.message : '操作失败，请稍后重试'
+// 拼接用于展示的完整地址。
 const fullAddress = (row: ServiceAddress) =>
   [row.province, row.city, row.district, row.address, row.doorplate].filter(Boolean).join('') || '—'
+// 加载列表数据并更新页面状态。
 const loadData = async () => {
   loading.value = true
   try {
+    // 获取接口返回的业务数据。
     const { data } = await addressApi.list()
     allRows.value = Array.isArray(data) ? data : data.list
     pagination.pageNum = Math.min(
@@ -50,18 +66,22 @@ const loadData = async () => {
     loading.value = false
   }
 }
+// 应用当前筛选条件查询列表。
 const search = () => {
   pagination.pageNum = 1
 }
+// 清空筛选条件并更新列表。
 const resetQuery = () => {
   Object.assign(query, { keyword: '', city: '', status: '' })
   search()
 }
+// 设置编辑记录并打开编辑弹窗。
 const openEdit = (row: ServiceAddress) => {
   editingId.value = row.id
   editingAddress.value = row
   dialogVisible.value = true
 }
+// 更新当前记录的启用状态。
 const setStatus = async (row: ServiceAddress, value: boolean) => {
   try {
     await addressApi.update(row.id, { isEnabled: value })
@@ -71,6 +91,7 @@ const setStatus = async (row: ServiceAddress, value: boolean) => {
     ElMessage.error(messageOf(error))
   }
 }
+// 将当前地址设为默认地址。
 const setDefault = async (row: ServiceAddress) => {
   if (row.isDefault) return
   try {
@@ -81,6 +102,7 @@ const setDefault = async (row: ServiceAddress) => {
     ElMessage.error(messageOf(error))
   }
 }
+// 确认后删除当前记录并刷新列表。
 const remove = async (row: ServiceAddress) => {
   try {
     await ElMessageBox.confirm(`确定删除“${row.contactName}”的服务地址吗？`, '删除地址', {
@@ -96,6 +118,7 @@ const remove = async (row: ServiceAddress) => {
     ElMessage.error(messageOf(error))
   }
 }
+// 页面挂载后加载初始数据。
 onMounted(loadData)
 </script>
 

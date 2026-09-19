@@ -12,32 +12,47 @@ interface ServiceCityForm {
   status: boolean
 }
 
+// 创建空白表单及默认值。
 const emptyForm = (): ServiceCityForm => ({
   name: '',
   sort: 0,
   status: true,
 })
 
+// 保存列表展示数据。
 const rows = ref<ServiceCity[]>([])
+// 保存列表记录总数。
 const total = ref(0)
+// 标记数据是否正在加载。
 const loading = ref(false)
+// 标记表单是否正在提交。
 const submitting = ref(false)
+// 控制编辑弹窗的显示状态。
 const dialogVisible = ref(false)
+// 保存当前编辑记录的 ID。
 const editingId = ref<number>()
+// 引用表单实例，用于校验和重置。
 const formRef = ref<FormInstance>()
+// 保存列表筛选条件。
 const query = reactive({ keyword: '', status: '' as '' | boolean })
+// 保存当前页码和每页条数。
 const pagination = reactive({ pageNum: 1, pageSize: 10 })
+// 保存表单编辑数据。
 const form = reactive<ServiceCityForm>(emptyForm())
 
+// 定义表单字段校验规则。
 const rules: FormRules<ServiceCityForm> = {
   name: [{ required: true, message: '请输入城市名称', trigger: 'blur' }],
   sort: [{ required: true, message: '请输入排序值', trigger: 'change' }],
 }
 
+// 加载列表数据并更新页面状态。
 const loadData = async () => {
   loading.value = true
   try {
+    // 整理用于搜索匹配的关键字。
     const keyword = query.keyword.trim()
+    // 获取接口返回的业务数据。
     const { data } = await serviceCityApi.list({
       pageNum: pagination.pageNum,
       pageSize: pagination.pageSize,
@@ -53,29 +68,36 @@ const loadData = async () => {
   }
 }
 
+// 应用当前筛选条件查询列表。
 const search = () => {
   pagination.pageNum = 1
   loadData()
 }
+// 清空筛选条件并更新列表。
 const resetQuery = () => {
   Object.assign(query, { keyword: '', status: '' })
   search()
 }
+// 初始化并打开新增弹窗。
 const openCreate = () => {
   editingId.value = undefined
   Object.assign(form, emptyForm())
   dialogVisible.value = true
 }
+// 设置编辑记录并打开编辑弹窗。
 const openEdit = async (row: ServiceCity) => {
   editingId.value = row.id
   dialogVisible.value = true
+  // 获取接口返回的业务数据。
   const { data } = await serviceCityApi.detail(row.id)
   Object.assign(form, { name: data.name, sort: data.sort, status: data.status })
 }
+// 校验表单并提交保存。
 const submit = async () => {
   if (!(await formRef.value?.validate().catch(() => false))) return
   submitting.value = true
   try {
+    // 组装接口提交数据。
     const payload: ServiceCityInput = {
       name: form.name.trim(),
       sort: form.sort,
@@ -93,7 +115,9 @@ const submit = async () => {
     submitting.value = false
   }
 }
+// 确认并切换当前记录的启用状态。
 const toggleStatus = async (row: ServiceCity) => {
+  // 生成本次状态切换的操作名称。
   const action = row.status ? '停用' : '启用'
   try {
     await ElMessageBox.confirm(`确定${action}“${row.name}”吗？`, `${action}城市`, {
@@ -108,6 +132,7 @@ const toggleStatus = async (row: ServiceCity) => {
     if (error !== 'cancel' && error !== 'close') throw error
   }
 }
+// 确认后删除当前记录并刷新列表。
 const remove = async (row: ServiceCity) => {
   try {
     await ElMessageBox.confirm(`删除“${row.name}”后无法恢复，确定继续吗？`, '删除城市', {
@@ -124,6 +149,7 @@ const remove = async (row: ServiceCity) => {
   }
 }
 
+// 页面挂载后加载初始数据。
 onMounted(loadData)
 </script>
 

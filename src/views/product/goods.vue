@@ -13,55 +13,81 @@ import ProductEditorDialog from './ProductEditorDialog.vue'
 import type { Product } from '@/types/product'
 import type { ProductCategory } from '@/types/productCategory'
 
+// 标记数据是否正在加载。
 const loading = ref(false)
+// 控制编辑弹窗的显示状态。
 const dialogVisible = ref(false)
+// 保存列表展示数据。
 const rows = ref<Product[]>([])
+const total = ref(0)
+// 分页器仅展示最近一次成功请求的页码和条数。
+const pagination = reactive({ pageNum: 1, pageSize: 10 })
+// 保存商品分类列表。
 const categories = ref<ProductCategory[]>([])
+// 保存当前编辑记录的 ID。
 const editingId = ref<number>()
+// 保存列表筛选条件。
 const query = reactive({
   keyword: '',
   categoryPath: [] as number[],
   status: '' as '' | boolean,
 })
+// 保存已应用到列表的筛选条件。
 const appliedQuery = reactive({ ...query })
 
 // 保留任意层级分类结构，级联选择器仅允许选择末级分类。
 const categoryOptions = computed(() => toCategoryCascaderOptions(categories.value))
 
-// 接口没有查询参数，列表筛选在前端完成。
-const filteredRows = computed(() => {
-  const keyword = appliedQuery.keyword.trim().toLowerCase()
-  return rows.value.filter(
-    (item) =>
-      (!keyword ||
-        [item.name, item.brand, item.model].some((value) =>
-          value?.toLowerCase().includes(keyword),
-        )) &&
-      (!lastCategoryId(appliedQuery.categoryPath) ||
-        item.categoryId === lastCategoryId(appliedQuery.categoryPath)) &&
-      (appliedQuery.status === '' || Boolean(item.isPublished) === appliedQuery.status),
-  )
-})
+let loadVersion = 0
 
+// 将异常转换为可展示的错误消息。
 const messageOf = (error: unknown) =>
   error instanceof Error ? error.message : '操作失败，请稍后重试'
 
-// 加载商品与分类基础数据。
-const loadData = async () => {
+// 按已提交的筛选条件查询分页商品。
+const loadData = async (pageNum = pagination.pageNum, pageSize = pagination.pageSize) => {
+  const version = ++loadVersion
   loading.value = true
   try {
-    const [productResult, categoryResult] = await Promise.all([
-      productApi.list(),
-      productCategoryApi.list(),
-    ])
-    rows.value = productResult.data
-    categories.value = categoryResult.data
+    const params = {
+      keyword: appliedQuery.keyword.trim() || undefined,
+      categoryId: lastCategoryId(appliedQuery.categoryPath) || undefined,
+      isPublished: typeof appliedQuery.status === 'boolean' ? appliedQuery.status : undefined,
+      pageNum,
+      pageSize,
+    }
+    // 删除、编辑或其他管理员操作可能使当前页超出范围。
+    while (version === loadVersion) {
+      const { data } = await productApi.page(params)
+      if (version !== loadVersion) return
+      const lastPage = Math.max(1, data.totalPage)
+      if (params.pageNum > lastPage) {
+        params.pageNum = lastPage
+        continue
+      }
+      rows.value = data.list
+      total.value = data.total
+      pagination.pageNum = data.pageNum
+      pagination.pageSize = data.pageSize
+      break
+    }
   } catch (error) {
-    ElMessage.error(messageOf(error))
+    if (version === loadVersion) ElMessage.error(messageOf(error))
   } finally {
-    loading.value = false
+    if (version === loadVersion) loading.value = false
   }
 }
+
+const loadCategories = async () => {
+  try {
+    const { data } = await productCategoryApi.list()
+    categories.value = data
+  } catch (error) {
+    ElMessage.error(messageOf(error))
+  }
+}
+
+const changePageSize = (pageSize: number) => loadData(1, pageSize)
 
 // 打开空白商品表单。
 const openCreate = () => {
@@ -92,15 +118,22 @@ const remove = async (row: Product) => {
   }
 }
 
-const search = () => Object.assign(appliedQuery, query, { categoryPath: [...query.categoryPath] })
+// 应用当前筛选条件查询列表。
+const search = () => {
+  Object.assign(appliedQuery, query, { categoryPath: [...query.categoryPath] })
+  return loadData(1)
+}
+// 清空筛选条件并更新列表。
 const resetQuery = () => {
   Object.assign(query, { keyword: '', categoryPath: [], status: '' })
   search()
 }
+// 获取商品所属分类的显示名称。
 const categoryName = (row: Product) =>
   row.category?.name ?? findCategoryName(categories.value, row.categoryId) ?? '-'
 
-onMounted(loadData)
+// 页面挂载后加载初始数据。
+onMounted(() => Promise.all([loadData(), loadCategories()]))
 </script>
 
 <template>
@@ -108,7 +141,7 @@ onMounted(loadData)
     <div class="filter-card">
       <el-form :inline="true" :model="query" @submit.prevent="search">
         <el-form-item label="商品"
-          ><el-input v-model="query.keyword" clearable placeholder="请输入名称、品牌或型号"
+          ><el-input v-model="query.keyword" clearable placeholder="请输入名称、品牌、型号或描述"
         /></el-form-item>
         <el-form-item label="商品分类">
           <el-cascader
@@ -143,7 +176,7 @@ onMounted(loadData)
       <div class="fill-content-body">
         <el-table
           v-loading="loading"
-          :data="filteredRows"
+          :data="rows"
           row-key="id"
           height="100%"
           border
@@ -195,18 +228,37 @@ onMounted(loadData)
           >
         </el-table>
       </div>
+      <div class="pagination-wrap">
+        <el-pagination
+          :current-page="pagination.pageNum"
+          :page-size="pagination.pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="total"
+          :disabled="loading"
+          @update:current-page="loadData($event)"
+          @update:page-size="changePageSize"
+        />
+      </div>
     </div>
 
     <ProductEditorDialog
       v-model="dialogVisible"
       :product-id="editingId"
       :categories="categories"
-      @saved="loadData"
+      @saved="loadData()"
     />
   </section>
 </template>
 
 <style scoped lang="scss">
+.pagination-wrap {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 18px;
+  overflow-x: auto;
+}
+
 .filter-card,
 .table-card {
   padding: 20px 22px;

@@ -22,6 +22,7 @@ type CaseEditorForm = Omit<CaseSaveInput, 'tags' | 'totalPrice'> & { tagsText: s
 const formRef = ref<FormInstance>()
 // 标记案例表单是否正在提交。
 const submitting = ref(false)
+// 配置图片上传接口地址。
 const uploadUrl = 'https://a9lhd8buo8.sealoshzh.site/upload/images'
 // 创建案例表单的默认数据。
 const createForm = (): CaseEditorForm => ({
@@ -98,6 +99,7 @@ const totalPrice = computed(
 const close = () => emit('update:modelValue', false)
 type CoverField = 'beforeImage' | 'afterImage'
 
+// 处理图片上传前的检查。
 const beforeUpload: UploadProps['beforeUpload'] = () => {
   // if (!file.type.startsWith('image/')) {
   //   ElMessage.warning('只能上传图片文件')
@@ -110,6 +112,7 @@ const beforeUpload: UploadProps['beforeUpload'] = () => {
   return true
 }
 
+// 将上传结果写入指定封面字段。
 const setUploadedCover = (field: CoverField, response: unknown) => {
   if (typeof response !== 'string') {
     ElMessage.error('上传接口未返回图片地址')
@@ -120,19 +123,23 @@ const setUploadedCover = (field: CoverField, response: unknown) => {
   ElMessage.success('图片上传成功')
 }
 
+// 保存改造前封面的上传结果。
 const handleBeforeCoverSuccess: UploadProps['onSuccess'] = (response) => {
   console.log('改造前', response)
   setUploadedCover('beforeImage', response)
 }
 
+// 保存改造后封面的上传结果。
 const handleAfterCoverSuccess: UploadProps['onSuccess'] = (response) => {
   setUploadedCover('afterImage', response)
 }
 
+// 提示图片上传失败。
 const handleUploadError: UploadProps['onError'] = () => {
   ElMessage.error('图片上传失败，请检查接口响应状态')
 }
 
+// 清空指定封面图片。
 const removeCover = (field: CoverField) => {
   form[field] = ''
   formRef.value?.validateField(field).catch(() => undefined)
@@ -194,6 +201,7 @@ watch(
     if (!visible) return
     formRef.value?.clearValidate()
     if (props.caseId) {
+      // 获取接口返回的业务数据。
       const { data } = await caseApi.detail(props.caseId)
       fillForm(data)
     } else
