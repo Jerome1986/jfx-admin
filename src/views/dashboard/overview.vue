@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import type { BusinessMetric, BusinessStatus, DashboardAlert } from '@/types/dashboard'
 
 // 工作台模拟数据；接入后端后可直接替换为接口返回值。
@@ -61,7 +61,7 @@ const alerts: DashboardAlert[] = [
     description: '存在超过预约安装时间仍未完成的服务单',
     count: 1,
     level: 'warning',
-    targetPath: '/trade/installation',
+    targetPath: '/trade/orders',
     query: { alertType: 'overdue' },
   },
   {

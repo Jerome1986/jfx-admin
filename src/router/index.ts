@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+﻿import { createRouter, createWebHistory } from 'vue-router'
 import Layout from '@/layout/index.vue'
 import pinia, { useUserStore } from '@/stores'
 
@@ -62,8 +62,7 @@ const router = createRouter({
         },
         {
           path: '/trade/installation',
-          component: () => import('@/views/trade/installation.vue'),
-          meta: { title: '安装服务单' },
+          redirect: '/trade/orders',
         },
         // 装修业务
         {

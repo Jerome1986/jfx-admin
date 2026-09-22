@@ -1,4 +1,4 @@
-import type {
+﻿import type {
   DateRangeFilter,
   FilterOption,
   PageFilter,
@@ -62,11 +62,6 @@ export const pageFilters = {
       '已退款',
     ]),
     dates('createdAt', '下单时间'),
-  ],
-  installation: [
-    text('keyword', '服务单', '请输入订单号或客户'),
-    select('status', '安装状态', ['待预约', '待派单', '待上门', '服务中', '已完成', '已取消']),
-    dates('appointmentAt', '预约时间'),
   ],
   appointment: [
     text('keyword', '客户信息', '请输入客户或手机号'),

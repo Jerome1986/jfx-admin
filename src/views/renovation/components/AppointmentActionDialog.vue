@@ -106,7 +106,9 @@ const rules = computed<FormRules>(() => {
     return { status: [{ required: true, message: '请选择预约状态', trigger: 'change' }] }
   if (props.mode === 'cancel')
     return { reason: [{ required: true, message: '请输入取消原因', trigger: 'blur' }] }
-  return { projectName: [{ required: true, message: '请输入项目名称', trigger: 'blur' }] }
+  return {
+    projectName: [{ required: true, whitespace: true, message: '请输入项目名称', trigger: 'blur' }],
+  }
 })
 
 // 将表单恢复为初始数据。
@@ -188,14 +190,24 @@ const submit = async () => {
   submitting.value = true
   try {
     if (!(await formRef.value?.validate().catch(() => false))) return
-    if (props.mode !== 'assign' && props.mode !== 'follow-up') {
+    if (props.mode !== 'assign' && props.mode !== 'follow-up' && props.mode !== 'convert') {
       ElMessage.warning('该操作接口待后端对接，本次填写的数据未保存')
       return
     }
     // 固定本次操作的预约，避免异步请求期间对象切换。
     const appointment = props.appointment
     if (!appointment) return
-    if (props.mode === 'assign') {
+    if (props.mode === 'convert') {
+      if (appointment.status !== 'COMPLETED' && !appointment.project) {
+        ElMessage.warning('仅已完成预约可转为项目')
+        return
+      }
+      await appointmentApi.convert(appointment.id, {
+        projectName: form.projectName.trim(),
+        remark: form.remark.trim(),
+      })
+      ElMessage.success('预约已转为装修项目')
+    } else if (props.mode === 'assign') {
       if (employeeLoading.value || employeeError.value) {
         ElMessage.warning('请先成功加载员工列表')
         return
@@ -235,12 +247,31 @@ const submit = async () => {
 </script>
 
 <template>
-  <el-dialog :model-value="modelValue" :title="title" width="520px" destroy-on-close :close-on-click-modal="!submitting"
-    :close-on-press-escape="!submitting" :show-close="!submitting"
-    @update:model-value="emit('update:modelValue', $event)">
-    <el-alert v-if="mode !== 'follow-up' && mode !== 'assign'" title="当前为业务表单预留，提交不会保存数据" type="warning"
-      :closable="false" show-icon />
-    <el-form ref="formRef" :model="form" :rules="rules" :disabled="submitting" label-width="92px" class="action-form">
+  <el-dialog
+    :model-value="modelValue"
+    :title="title"
+    width="520px"
+    destroy-on-close
+    :close-on-click-modal="!submitting"
+    :close-on-press-escape="!submitting"
+    :show-close="!submitting"
+    @update:model-value="emit('update:modelValue', $event)"
+  >
+    <el-alert
+      v-if="mode !== 'follow-up' && mode !== 'assign' && mode !== 'convert'"
+      title="当前为业务表单预留，提交不会保存数据"
+      type="warning"
+      :closable="false"
+      show-icon
+    />
+    <el-form
+      ref="formRef"
+      :model="form"
+      :rules="rules"
+      :disabled="submitting"
+      label-width="92px"
+      class="action-form"
+    >
       <template v-if="mode === 'create'">
         <el-form-item label="客户姓名" prop="customerName">
           <el-input v-model="form.customerName" placeholder="请输入客户姓名" />
@@ -267,15 +298,32 @@ const submit = async () => {
       </template>
 
       <template v-else-if="mode === 'assign'">
-        <el-form-item v-if="appointment?.employeeId != null" label="当前负责人">{{ assigneeLabel }}</el-form-item>
-        <el-alert v-if="employeeError" :title="employeeError" type="error" :closable="false" show-icon>
+        <el-form-item v-if="appointment?.employeeId != null" label="当前负责人">{{
+          assigneeLabel
+        }}</el-form-item>
+        <el-alert
+          v-if="employeeError"
+          :title="employeeError"
+          type="error"
+          :closable="false"
+          show-icon
+        >
           <el-button link type="primary" @click="loadEmployees">重新加载</el-button>
         </el-alert>
         <el-form-item label="负责人" prop="employeeId">
-          <el-select v-model="form.employeeId" filterable :loading="employeeLoading" placeholder="请选择在职员工">
-            <el-option v-for="employee in employees" :key="employee.id"
+          <el-select
+            v-model="form.employeeId"
+            filterable
+            :loading="employeeLoading"
+            placeholder="请选择在职员工"
+          >
+            <el-option
+              v-for="employee in employees"
+              :key="employee.id"
               :disabled="employee.id === appointment?.employeeId"
-              :label="`${employeeName(employee)}（${employee.employeeNo}）`" :value="employee.id" />
+              :label="`${employeeName(employee)}（${employee.employeeNo}）`"
+              :value="employee.id"
+            />
           </el-select>
         </el-form-item>
       </template>
@@ -285,7 +333,12 @@ const submit = async () => {
           <span>{{ assigneeLabel }}</span>
         </el-form-item>
         <el-form-item label="跟进内容" prop="content">
-          <el-input v-model="form.content" type="textarea" :rows="4" placeholder="请输入本次沟通情况" />
+          <el-input
+            v-model="form.content"
+            type="textarea"
+            :rows="4"
+            placeholder="请输入本次沟通情况"
+          />
         </el-form-item>
         <el-form-item label="下次跟进">
           <el-date-picker v-model="form.nextFollowAt" type="datetime" placeholder="可选" />
@@ -294,7 +347,12 @@ const submit = async () => {
 
       <template v-else-if="mode === 'visit'">
         <el-form-item label="上门日期" prop="visitDate">
-          <el-date-picker v-model="form.visitDate" type="date" value-format="YYYY-MM-DD" placeholder="请选择日期" />
+          <el-date-picker
+            v-model="form.visitDate"
+            type="date"
+            value-format="YYYY-MM-DD"
+            placeholder="请选择日期"
+          />
         </el-form-item>
         <el-form-item label="预约时段" prop="timeSlot">
           <el-select v-model="form.timeSlot" placeholder="请选择时段">
@@ -318,7 +376,7 @@ const submit = async () => {
           </el-select>
         </el-form-item>
         <el-form-item label="备注">
-          <el-input v-model="form.remark" type="textarea" :rows="3" />
+          <el-input v-model="form.remark" maxlength="5000" type="textarea" :rows="3" />
         </el-form-item>
       </template>
 
@@ -328,18 +386,25 @@ const submit = async () => {
 
       <template v-else>
         <el-form-item label="项目名称" prop="projectName">
-          <el-input v-model="form.projectName" placeholder="请输入项目名称" />
+          <el-input v-model="form.projectName" maxlength="191" placeholder="请输入项目名称" />
         </el-form-item>
         <el-form-item label="备注">
-          <el-input v-model="form.remark" type="textarea" :rows="3" />
+          <el-input v-model="form.remark" maxlength="5000" type="textarea" :rows="3" />
         </el-form-item>
       </template>
     </el-form>
     <template #footer>
       <el-button :disabled="submitting" @click="emit('update:modelValue', false)">取消</el-button>
-      <el-button type="primary" :loading="submitting"
-        :disabled="(mode === 'assign' && (employeeLoading || !!employeeError)) || (mode === 'follow-up' && appointment?.employeeId == null)"
-        @click="submit">提交</el-button>
+      <el-button
+        type="primary"
+        :loading="submitting"
+        :disabled="
+          (mode === 'assign' && (employeeLoading || !!employeeError)) ||
+          (mode === 'follow-up' && appointment?.employeeId == null)
+        "
+        @click="submit"
+        >提交</el-button
+      >
     </template>
   </el-dialog>
 </template>

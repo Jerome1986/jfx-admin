@@ -1,4 +1,4 @@
-import {
+﻿import {
   DataLine,
   Document,
   Goods,
@@ -44,10 +44,7 @@ export const menuGroups: MenuGroup[] = [
     index: 'trade',
     title: '交易中心',
     icon: ShoppingCart,
-    children: [
-      { title: '商品订单', path: '/trade/orders' },
-      { title: '安装服务单', path: '/trade/installation' },
-    ],
+    children: [{ title: '商品订单', path: '/trade/orders' }],
   },
   {
     index: 'renovation',
