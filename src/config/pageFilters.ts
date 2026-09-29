@@ -112,7 +112,6 @@ export const pageFilters = {
   feedback: [
     text('keyword', '反馈信息', '请输入反馈编号、客户或联系方式'),
     select('status', '处理状态', ['待处理', '处理中', '已回复', '已关闭']),
-    dates('submittedAt', '提交时间'),
   ],
   roles: [
     text('keyword', '管理员', '请输入管理员名称或手机号'),

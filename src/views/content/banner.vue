@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Plus } from '@element-plus/icons-vue'
-import type { FormInstance, FormRules, UploadProps } from 'element-plus'
+import type { FormInstance, FormRules, UploadInstance, UploadProps } from 'element-plus'
 import { bannerApi } from '@/api/banner'
 import type { Banner, BannerInput } from '@/types/banner'
 
@@ -14,6 +14,9 @@ const submitting = ref(false)
 const dialogVisible = ref(false)
 // 引用表单实例，用于校验和重置。
 const formRef = ref<FormInstance>()
+const uploadRef = ref<UploadInstance>()
+const uploading = ref(false)
+const uploadProgress = ref(0)
 // 保存列表展示数据。
 const rows = ref<Banner[]>([])
 // 保存当前编辑记录的 ID。
@@ -70,6 +73,7 @@ const resetForm = () => {
 
 // 保存上传成功后的图片地址。
 const handleUploadSuccess: UploadProps['onSuccess'] = (response) => {
+  uploading.value = false
   if (typeof response !== 'string') return ElMessage.error('上传接口未返回图片地址')
   form.image = response
   formRef.value?.validateField('image').catch(() => undefined)
@@ -77,11 +81,30 @@ const handleUploadSuccess: UploadProps['onSuccess'] = (response) => {
 }
 
 // 提示图片上传失败。
-const handleUploadError: UploadProps['onError'] = () => ElMessage.error('图片上传失败')
+const handleUploadError: UploadProps['onError'] = () => {
+  uploading.value = false
+  uploadProgress.value = 0
+  ElMessage.error('图片上传失败')
+}
+
+const handleUploadProgress: UploadProps['onProgress'] = (event) => {
+  uploadProgress.value = Math.min(100, Math.max(0, Math.round(event.percent)))
+}
+
+const cancelUpload = () => {
+  uploadRef.value?.abort()
+  uploading.value = false
+  uploadProgress.value = 0
+}
 
 // 处理图片上传前的检查。
 const beforeUpload: UploadProps['beforeUpload'] = (file) => {
-  if (file.type.startsWith('image/')) return true
+  if (uploading.value) return false
+  if (file.type.startsWith('image/')) {
+    uploadProgress.value = 0
+    uploading.value = true
+    return true
+  }
   ElMessage.warning('只能上传图片文件')
   return false
 }
@@ -112,6 +135,7 @@ const openEdit = (row: Banner) => {
 
 // 校验表单并提交保存。
 const submit = async () => {
+  if (uploading.value) return
   if (!(await formRef.value?.validate().catch(() => false))) return
   submitting.value = true
   try {
@@ -221,23 +245,34 @@ onMounted(loadBanners)
       width="620px"
       destroy-on-close
       :close-on-click-modal="false"
+      @close="cancelUpload"
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="90px">
         <el-form-item label="标题" prop="title"><el-input v-model="form.title" /></el-form-item>
         <el-form-item label="轮播图片" prop="image">
           <div class="upload-wrap">
             <el-upload
+              ref="uploadRef"
               class="banner-uploader"
               :action="uploadUrl"
+              accept="image/*"
+              :disabled="uploading"
               :show-file-list="false"
               :before-upload="beforeUpload"
               :on-success="handleUploadSuccess"
               :on-error="handleUploadError"
+              :on-progress="handleUploadProgress"
             >
               <img v-if="form.image" :src="form.image" alt="轮播图片" />
               <el-icon v-else><Plus /></el-icon>
             </el-upload>
-            <el-button v-if="form.image" :icon="Delete" circle @click="removeImage" />
+            <el-button
+              v-if="form.image"
+              :icon="Delete"
+              :disabled="uploading"
+              circle
+              @click="removeImage"
+            />
           </div>
         </el-form-item>
         <el-form-item label="排序" prop="sort"
@@ -252,7 +287,9 @@ onMounted(loadBanners)
       </el-form>
       <template #footer
         ><el-button @click="dialogVisible = false">取消</el-button
-        ><el-button type="primary" :loading="submitting" @click="submit">保存</el-button></template
+        ><el-button type="primary" :loading="submitting" :disabled="uploading" @click="submit"
+          >保存</el-button
+        ></template
       >
     </el-dialog>
   </section>
@@ -308,10 +345,19 @@ onMounted(loadBanners)
   border-radius: 8px;
   cursor: pointer;
 }
+.upload-progress {
+  width: 100%;
+  margin-top: 8px;
+  color: var(--jfx-muted);
+  font-size: 12px;
+}
+.upload-progress :deep(.el-progress) {
+  width: 240px;
+}
 .banner-uploader img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 .banner-uploader .el-icon {
   color: var(--jfx-muted);

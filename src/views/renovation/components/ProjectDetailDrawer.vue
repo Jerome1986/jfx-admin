@@ -5,6 +5,7 @@ import { projectStatuses, type ProjectDetail } from '@/types/project'
 import { projectMoney, projectTime } from '@/utils/project'
 import ProjectActionDialog from './ProjectActionDialog.vue'
 import ProjectQuotationDialog from './ProjectQuotationDialog.vue'
+import QuoteImage from './QuoteImage.vue'
 const props = defineProps<{ modelValue: boolean; projectId?: number }>()
 const emit = defineEmits<{ 'update:modelValue': [boolean]; saved: [] }>()
 const project = ref<ProjectDetail>()
@@ -116,24 +117,27 @@ function saved() {
             >编辑报价</el-button
           >
         </div>
-        <el-table :data="project.items" border
-          ><el-table-column prop="category" label="分类" width="75" /><el-table-column
-            prop="name"
-            label="名称"
-            min-width="140" /><el-table-column
-            prop="description"
-            label="说明"
-            min-width="120" /><el-table-column
-            prop="unit"
-            label="单位"
-            width="75" /><el-table-column
-            prop="unitPrice"
-            label="单价（元）"
-            width="110" /><el-table-column
-            prop="quantity"
-            label="数量"
-            width="85" /><el-table-column prop="amount" label="金额（元）" width="120"
-        /></el-table>
+        <el-table :data="project.items" border>
+          <el-table-column label="图片" width="80"
+            ><template #default="{ row }"><QuoteImage :src="row.image" /></template
+          ></el-table-column>
+          <el-table-column label="类型" width="100"
+            ><template #default="{ row }">{{
+              row.productId != null ? '商品' : row.serviceId != null ? '服务' : '历史明细'
+            }}</template></el-table-column
+          >
+          <el-table-column prop="category" label="分类" width="75" />
+          <el-table-column prop="name" label="名称" min-width="140" />
+          <el-table-column prop="description" label="说明" min-width="120" show-overflow-tooltip />
+          <el-table-column label="单价（元）" width="130"
+            ><template #default="{ row }"
+              >{{ row.unitPrice
+              }}<span v-if="row.productId == null && row.unit"> / {{ row.unit }}</span></template
+            ></el-table-column
+          >
+          <el-table-column prop="quantity" label="数量" width="85" />
+          <el-table-column prop="amount" label="金额（元）" width="120" />
+        </el-table>
         <h3>服务进度</h3>
         <el-empty
           v-if="!project.progressRecords.length"

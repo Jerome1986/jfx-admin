@@ -128,6 +128,9 @@ function component(t, file, initial, overrides = {}) {
       renewalPlanApi: { list: overrides.plans || (async () => ({ data: [] })) },
     },
     '@/api/products': { productApi: { page: overrides.products || (async () => page([])) } },
+    '@/api/constructionServices': {
+      constructionServiceApi: { list: overrides.services || (async () => page([])) },
+    },
     '@/types/project': types,
     '@/utils/project': math,
   }
@@ -433,7 +436,7 @@ test('progress: same-state notes and completion omit contract and version', asyn
 test('quotation: submit snapshot excludes IDs/amount and preserves captured version', async (t) => {
   const c = quote(t)
   await c.open()
-  c.state.rows.value[0].name = 'Updated'
+  c.state.rows.value[0].quantity = '21'
   await c.state.submit()
   assert.equal(c.calls[0].args[1], 4)
   assert.equal('id' in c.calls[0].args[2][0], false)
@@ -462,11 +465,13 @@ test('quotation: locked projects cannot submit', async (t) => {
     assert.equal(c.calls.length, 0)
   }
 })
-test('quotation: product replacement updates snapshot but preserves quantity and unit', async (t) => {
+test('quotation: product replacement preserves quantity and clears historical unit', async (t) => {
   const c = quote(t)
   await c.open()
-  c.state.pick(c.state.rows.value[0])
-  c.state.choose({
+  c.state.pick('product', c.state.rows.value[0])
+  await flush()
+  c.state.chooseProduct({
+    isPublished: true,
     id: 19,
     name: 'New tile',
     price: '23.45',
@@ -476,7 +481,7 @@ test('quotation: product replacement updates snapshot but preserves quantity and
   assert.equal(c.state.rows.value[0].productId, 19)
   assert.equal(c.state.rows.value[0].unitPrice, '23.45')
   assert.equal(c.state.rows.value[0].quantity, '20')
-  assert.equal(c.state.rows.value[0].unit, 'm2')
+  assert.equal(c.state.rows.value[0].unit, null)
 })
 test('quotation: conflict refreshes and does not overwrite automatically', async (t) => {
   const c = quote(t, {}, { quotation: () => Promise.reject(httpError(409)) })
@@ -566,4 +571,282 @@ test('conversion feedback contains readable Chinese rather than question marks',
   await c.open()
   await c.state.submit()
   assert.ok(c.messages.some((m) => m.key === 'success' && /[\u4e00-\u9fff]/.test(m.text)))
+})
+const selectableProduct = (patch = {}) => ({
+  id: 19,
+  name: 'Product',
+  price: '12.30',
+  mainImage: 'product.png',
+  isPublished: true,
+  ...patch,
+})
+const selectableService = (patch = {}) => ({
+  id: 22,
+  name: 'Service',
+  unit: '㎡',
+  unitPrice: '50.00',
+  description: 'Installation',
+  image: 'service.png',
+  isEnabled: true,
+  ...patch,
+})
+async function select(c, kind, value, row) {
+  c.state.pick(kind, row)
+  c.state.pickerCategory.value = row?.category ?? (kind === 'service' ? '人工' : '主材')
+  await flush()
+  if (kind === 'product') c.state.chooseProduct(value)
+  else c.state.chooseService(value)
+}
+
+test('quotation: new product has null unit and service association', async (t) => {
+  const c = quote(t, { items: [] })
+  await c.open()
+  await select(c, 'product', selectableProduct())
+  await c.state.submit()
+  const row = c.calls[0].args[2][0]
+  assert.equal(row.productId, 19)
+  assert.equal(row.serviceId, null)
+  assert.equal(row.unit, null)
+  assert.equal(row.unitPrice, '12.30')
+})
+test('quotation: service snapshot has serviceId, required unit and labor category', async (t) => {
+  const c = quote(t, { items: [] })
+  await c.open()
+  await select(c, 'service', selectableService())
+  await c.state.submit()
+  const row = c.calls[0].args[2][0]
+  assert.equal(row.productId, null)
+  assert.equal(row.serviceId, 22)
+  assert.equal(row.unit, '㎡')
+  assert.equal(row.category, '人工')
+  assert.equal(row.image, 'service.png')
+})
+test('quotation: disabled or unitless services and unpublished products cannot be selected', async (t) => {
+  const c = quote(t, { items: [] })
+  await c.open()
+  await select(c, 'product', selectableProduct({ isPublished: false }))
+  await select(c, 'service', selectableService({ isEnabled: false }))
+  await select(c, 'service', selectableService({ unit: ' ' }))
+  assert.equal(c.state.rows.value.length, 0)
+})
+test('quotation: service selection sends only supported pagination and filters disabled rows', async (t) => {
+  const requests = []
+  const c = quote(
+    t,
+    { items: [] },
+    {
+      services: async (params) => {
+        requests.push(params)
+        return page(
+          [selectableService(), selectableService({ id: 23, isEnabled: false })],
+          params.pageNum,
+          3,
+        )
+      },
+    },
+  )
+  await c.open()
+  c.state.pick('service')
+  await flush()
+  assert.deepEqual(clone(requests[0]), { pageNum: 1, pageSize: 10 })
+  assert.equal(c.state.services.value.length, 1)
+  c.state.query.pageNum = 2
+  await c.state.loadOptions()
+  assert.equal(requests[1].pageNum, 2)
+})
+test('quotation: duplicate addition merges quantity without replacing historical snapshot', async (t) => {
+  const c = quote(t, { items: [item({ productId: 19, unitPrice: '8.00', quantity: '2.50' })] })
+  await c.open()
+  await select(c, 'product', selectableProduct())
+  assert.equal(c.state.rows.value.length, 1)
+  assert.equal(c.state.rows.value[0].quantity, '3.50')
+  assert.equal(c.state.rows.value[0].unitPrice, '8.00')
+  assert.equal(c.state.rows.value[0].name, 'Tile')
+})
+test('quotation: service duplicate merges and numeric IDs do not mix product/service types', async (t) => {
+  const c = quote(t, { items: [] })
+  await c.open()
+  await select(c, 'service', selectableService({ id: 19 }))
+  await select(c, 'service', selectableService({ id: 19 }))
+  await select(c, 'product', selectableProduct({ id: 19 }))
+  assert.equal(c.state.rows.value.length, 2)
+  assert.equal(c.state.rows.value[0].quantity, '2.00')
+})
+test('quotation: duplicate quantity overflow is rejected without changing rows', async (t) => {
+  const c = quote(t, { items: [item({ productId: 19, quantity: '99999999.99' })] })
+  await c.open()
+  await select(c, 'product', selectableProduct())
+  assert.equal(c.state.rows.value[0].quantity, '99999999.99')
+  assert.equal(c.state.pickerVisible.value, true)
+})
+test('quotation: product rows can become services while preserving quantity', async (t) => {
+  const c = quote(t)
+  await c.open()
+  c.state.pick('service', c.state.rows.value[0])
+  assert.equal(c.state.pickerVisible.value, true)
+  await select(c, 'service', selectableService(), c.state.rows.value[0])
+  assert.equal(c.state.rows.value[0].serviceId, 22)
+  assert.equal(c.state.rows.value[0].productId, null)
+  assert.equal(c.state.rows.value[0].quantity, '20')
+  assert.equal(c.state.rows.value[0].unit, '㎡')
+})
+test('quotation: historical unit and snapshot remain unchanged when saving quantity', async (t) => {
+  const original = item({ description: ' Original ', image: 'old.png' })
+  const c = quote(t, { items: [original, item({ id: 9, productId: null, unit: '项' })] })
+  await c.open()
+  c.state.rows.value[0].quantity = '3'
+  await c.state.submit()
+  const rows = c.calls[0].args[2]
+  assert.equal(rows[0].unit, 'm2')
+  assert.equal(rows[0].description, ' Original ')
+  assert.equal(rows[0].image, 'old.png')
+  assert.equal(rows[1].productId, null)
+  assert.equal(rows[1].serviceId, null)
+  assert.equal(rows[1].unit, '项')
+})
+test('quotation: invalid dual association or empty service unit cannot be saved', async (t) => {
+  const c = quote(t)
+  await c.open()
+  for (const row of [
+    item({ serviceId: 22 }),
+    item({ productId: null, serviceId: 22, unit: null }),
+    item({ productId: null, serviceId: 22, unit: ' ' }),
+  ]) {
+    c.state.rows.value = [row]
+    await c.state.submit()
+  }
+  assert.equal(c.calls.length, 0)
+})
+test('quotation: a slower product request cannot overwrite service results', async (t) => {
+  const old = pending()
+  const c = quote(
+    t,
+    {},
+    { products: () => old.promise, services: async () => page([selectableService()]) },
+  )
+  await c.open()
+  c.state.pick('product')
+  c.state.pick('service')
+  await flush()
+  old.resolve(page([selectableProduct()]))
+  await flush()
+  assert.equal(c.state.products.value.length, 0)
+  assert.equal(c.state.services.value[0].id, 22)
+  assert.equal(c.state.pickerLoading.value, false)
+})
+test('quotation: selection load failure can retry and closing ignores late results', async (t) => {
+  let n = 0
+  const delayed = pending()
+  const c = quote(
+    t,
+    {},
+    { services: () => (++n === 1 ? Promise.reject(httpError(500)) : delayed.promise) },
+  )
+  await c.open()
+  c.state.pick('service')
+  await flush()
+  assert.equal(c.state.pickerError.value, true)
+  const retry = c.state.loadOptions()
+  c.state.closePicker()
+  delayed.resolve(page([selectableService()]))
+  await retry
+  assert.equal(c.state.services.value.length, 0)
+  assert.equal(c.state.pickerVisible.value, false)
+})
+test('quotation: repeated save clicks send one request', async (t) => {
+  const d = pending()
+  const c = quote(t, {}, { quotation: () => d.promise })
+  await c.open()
+  const first = c.state.submit()
+  const second = c.state.submit()
+  assert.equal(c.calls.length, 1)
+  d.resolve({ data: project() })
+  await Promise.all([first, second])
+})
+test('quotation template: snapshot fields are read-only and images have preview/fallback', () => {
+  const template = parse(read('src/views/renovation/components/ProjectQuotationDialog.vue'))
+    .descriptor.template.content
+  assert.ok(!/v-model="row\.(?:name|image|description|unit|unitPrice)"/.test(template))
+  assert.ok(template.includes('v-model="row.quantity"'))
+  assert.ok(!template.includes('解除关联'))
+  assert.ok(template.includes('<QuoteImage'))
+  const image = read('src/views/renovation/components/QuoteImage.vue')
+  assert.ok(image.includes('preview-src-list'))
+  assert.ok(image.includes('#error'))
+  assert.ok(image.includes('暂无图片'))
+})
+
+test('quotation: adding requires explicit category before selecting', async (t) => {
+  const c = quote(t, { items: [] })
+  await c.open()
+  c.state.openPicker()
+  await flush()
+  assert.equal(c.state.pickerCategory.value, '')
+  c.state.chooseProduct(selectableProduct())
+  assert.equal(c.state.rows.value.length, 0)
+  assert.equal(c.state.pickerVisible.value, true)
+})
+test('quotation: every expense category is available for both products and services', async (t) => {
+  for (const kind of ['product', 'service'])
+    for (const category of ['人工', '主材', '辅材']) {
+      const c = quote(t, { items: [] })
+      await c.open()
+      c.state.pick(kind)
+      await flush()
+      c.state.pickerCategory.value = category
+      if (kind === 'product') c.state.chooseProduct(selectableProduct())
+      else c.state.chooseService(selectableService())
+      await c.state.submit()
+      assert.equal(c.calls[0].args[2][0].category, category)
+    }
+})
+test('quotation: replacing preloads category and switching source preserves it and quantity', async (t) => {
+  const c = quote(t, { items: [item({ category: '辅材', quantity: '8' })] })
+  await c.open()
+  c.state.openPicker(c.state.rows.value[0])
+  assert.equal(c.state.pickerCategory.value, '辅材')
+  c.state.pickerKind.value = 'service'
+  c.state.query.pageNum = 3
+  c.state.changeKind()
+  await flush()
+  assert.equal(c.state.query.pageNum, 1)
+  assert.equal(c.state.pickerCategory.value, '辅材')
+  c.state.pickerCategory.value = '主材'
+  c.state.chooseService(selectableService())
+  assert.equal(c.state.rows.value[0].category, '主材')
+  assert.equal(c.state.rows.value[0].quantity, '8')
+  assert.equal(c.state.rows.value[0].productId, null)
+  assert.equal(c.state.rows.value[0].serviceId, 22)
+})
+test('quotation: identical items in different expense categories do not merge', async (t) => {
+  const c = quote(t, { items: [] })
+  await c.open()
+  for (const category of ['主材', '辅材', '辅材']) {
+    c.state.openPicker()
+    await flush()
+    c.state.pickerCategory.value = category
+    c.state.chooseProduct(selectableProduct())
+  }
+  assert.equal(c.state.rows.value.length, 2)
+  assert.equal(c.state.rows.value[0].quantity, '1')
+  assert.equal(c.state.rows.value[1].quantity, '2.00')
+})
+test('quotation: canceled replacement does not change original category or snapshot', async (t) => {
+  const c = quote(t)
+  await c.open()
+  const before = clone(c.state.rows.value[0])
+  c.state.openPicker(c.state.rows.value[0])
+  c.state.pickerCategory.value = '人工'
+  c.state.closePicker()
+  assert.deepEqual(clone(c.state.rows.value[0]), before)
+})
+test('quotation: row actions are replace/delete and category is display-only', () => {
+  const template = parse(read('src/views/renovation/components/ProjectQuotationDialog.vue'))
+    .descriptor.template.content
+  assert.ok(!template.includes('v-model="row.category"'))
+  assert.ok(!template.includes('替换商品'))
+  assert.ok(!template.includes('替换服务'))
+  assert.ok(template.includes('添加明细'))
+  assert.ok(template.includes('openPicker(row)'))
+  assert.ok(template.includes('v-model="pickerCategory"'))
 })

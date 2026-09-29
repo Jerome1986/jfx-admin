@@ -38,10 +38,11 @@ export interface Project extends ProjectInput {
 }
 export interface QuoteItemInput {
   productId: number | null
+  serviceId: number | null
   category: string
   name: string
   description: string | null
-  unit: string
+  unit: string | null
   unitPrice: string
   quantity: string
   image: string | null
